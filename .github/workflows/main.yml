@@ -24,62 +24,32 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Extract new app source ZIP
+      - name: Extract and validate source ZIP
         run: |
+          set -e
           rm -rf extracted
-          mkdir -p extracted
+          test -f Gudiya-Taxi-Partner-New-Project.zip
           unzip -o Gudiya-Taxi-Partner-New-Project.zip -d extracted
-          test -f extracted/app/build.gradle.kts
-          test -f extracted/settings.gradle.kts
-
-      - name: Fix Java and Kotlin targets
-        run: |
-          cat > extracted/app/build.gradle.kts <<'EOF'
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
-          }
-
-          android {
-              namespace = "in.gudiyataxipartner"
-              compileSdk = 35
-
-              defaultConfig {
-                  applicationId = "in.gudiyataxipartner"
-                  minSdk = 24
-                  targetSdk = 35
-                  versionCode = 1
-                  versionName = "1.0.0"
-              }
-
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
-          }
-          EOF
+          test -f extracted/GudiyaTaxiPartner/settings.gradle.kts
+          test -f extracted/GudiyaTaxiPartner/app/build.gradle.kts
+          test -f extracted/GudiyaTaxiPartner/app/src/main/java/com/gudiyataxipartner/MainActivity.kt
+          echo "Source ZIP validation passed"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
 
       - name: Build Android APK
-        working-directory: extracted
-        run: gradle --no-daemon assembleDebug
+        working-directory: extracted/GudiyaTaxiPartner
+        run: gradle assembleDebug
 
       - name: Validate APK
         run: |
-          test -s extracted/app/build/outputs/apk/debug/app-debug.apk
+          test -s extracted/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
           echo "APK validation passed"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: gudiya-taxi-partner-debug-apk
-          path: extracted/app/build/outputs/apk/debug/app-debug.apk
+          path: extracted/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
