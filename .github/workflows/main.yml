@@ -26,7 +26,8 @@ jobs:
 
       - name: Extract new app source ZIP
         run: |
-          unzip -o Gudiya-Taxi-Partner-New-Project.zip -d extracted
+          unzip -o Gudiya-Taxi-Partner-New-Project.zip -d extracted || true
+           test -f extracted/app/build.gradle.kts
           test -f extracted/GudiyaTaxiPartner/app/build.gradle.kts
 
       - name: Set up Gradle
