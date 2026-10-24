@@ -1,0 +1,49 @@
+
+name: Gudiya Taxi Partner Android Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Extract new app source ZIP
+        run: |
+          unzip -o Gudiya-Taxi-Partner-New-Project.zip -d extracted
+          test -f extracted/GudiyaTaxiPartner/app/build.gradle.kts
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Android APK
+        working-directory: extracted/GudiyaTaxiPartner
+        run: gradle assembleDebug
+
+      - name: Validate APK
+        run: |
+          test -s extracted/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
+          echo "APK validation passed"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gudiya-taxi-partner-debug-apk
+          path: extracted/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
