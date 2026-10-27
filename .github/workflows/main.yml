@@ -1,3 +1,4 @@
+
 name: Build and publish Gudiya Taxi Partner APK
 
 on:
@@ -28,13 +29,28 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Extract and validate app source
-        run: | set -euo pipefail test -s Gudiya-Taxi-Partner-New-Project.zip rm -rf app-source unzip -oq Gudiya-Taxi-Partner-New-Project.zip -d app-source test -f app-source/GudiyaTaxiPartner/settings.gradle.kts test -f app-source/GudiyaTaxiPartner/app/build.gradle.kts test -f app-source/GudiyaTaxiPartner/app/src/main/assets/index.html 
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s Gudiya-Taxi-Partner-New-Project.zip
+          rm -rf app-source
+          unzip -oq Gudiya-Taxi-Partner-New-Project.zip -d app-source
+          test -f app-source/GudiyaTaxiPartner/settings.gradle.kts
+          test -f app-source/GudiyaTaxiPartner/app/build.gradle.kts
+          test -f app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+
       - name: Build APK
         working-directory: app-source/GudiyaTaxiPartner
         run: gradle assembleDebug
 
       - name: Verify APK
-        run: | set -euo pipefail test -s app-source/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk cp app-source/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk gudiya-taxi-partner.apk test -s gudiya-taxi-partner.apk 
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s app-source/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
+          cp app-source/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk gudiya-taxi-partner.apk
+          test -s gudiya-taxi-partner.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -48,7 +64,10 @@ jobs:
         with:
           tag_name: latest
           name: Latest Gudiya Taxi Partner APK
-          body: | Latest Android APK for Gudiya Taxi Partner. Download gudiya-taxi-partner.apk to install the app.           target_commitish: main
+          body: |
+            Latest Android APK for Gudiya Taxi Partner.
+            Download gudiya-taxi-partner.apk to install the app.
+          target_commitish: main
           files: gudiya-taxi-partner.apk
           overwrite_files: true
           make_latest: true
