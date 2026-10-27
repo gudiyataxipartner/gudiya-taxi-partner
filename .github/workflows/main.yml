@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "Gudiya-Taxi-Partner-New-Project.zip"
+      - ".github/workflows/main.yml"
 
 permissions:
   contents: write
@@ -22,17 +25,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Extract and validate source ZIP
-        run: |
-          set -e
-          rm -rf extracted
-          test -f Gudiya-Taxi-Partner-New-Project.zip
-          unzip -o Gudiya-Taxi-Partner-New-Project.zip -d extracted
-          test -f extracted/GudiyaTaxiPartner/settings.gradle.kts
-          test -f extracted/GudiyaTaxiPartner/app/build.gradle.kts
-          test -f extracted/GudiyaTaxiPartner/app/src/main/java/com/gudiyataxipartner/MainActivity.kt echo "Source ZIP validation passed" - name: Set up Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Extract and validate source ZIP
+        run: | set -e rm -rf extracted test -s Gudiya-Taxi-Partner-New-Project.zip unzip -o Gudiya-Taxi-Partner-New-Project.zip -d extracted test -f extracted/GudiyaTaxiPartner/settings.gradle.kts test -f extracted/GudiyaTaxiPartner/app/build.gradle.kts test -f extracted/GudiyaTaxiPartner/app/src/main/java/com/gudiyataxipartner/MainActivity.java echo "Source ZIP validation passed" 
       - name: Build Android APK
         working-directory: extracted/GudiyaTaxiPartner
         run: gradle assembleDebug
@@ -53,7 +50,7 @@ jobs:
       - name: Publish public APK download link
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
+          tag_name: latest-apk
           name: Gudiya Taxi Partner Latest APK
           target_commitish: main
           make_latest: true
