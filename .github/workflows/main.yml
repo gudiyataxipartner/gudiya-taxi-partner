@@ -1,5 +1,4 @@
-
-name: Gudiya Taxi Partner Android Build
+name: Gudiya Taxi Partner Android Build and APK Download
 
 on:
   workflow_dispatch:
@@ -8,12 +7,11 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -32,10 +30,7 @@ jobs:
           unzip -o Gudiya-Taxi-Partner-New-Project.zip -d extracted
           test -f extracted/GudiyaTaxiPartner/settings.gradle.kts
           test -f extracted/GudiyaTaxiPartner/app/build.gradle.kts
-          test -f extracted/GudiyaTaxiPartner/app/src/main/java/com/gudiyataxipartner/MainActivity.kt
-          echo "Source ZIP validation passed"
-
-      - name: Set up Gradle
+          test -f extracted/GudiyaTaxiPartner/app/src/main/java/com/gudiyataxipartner/MainActivity.kt echo "Source ZIP validation passed" - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build Android APK
@@ -43,13 +38,24 @@ jobs:
         run: gradle assembleDebug
 
       - name: Validate APK
-        run: |
-          test -s extracted/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
-          echo "APK validation passed"
+        run: test -s extracted/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload APK
+      - name: Rename APK for direct download
+        run: cp extracted/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk Gudiya-Taxi-Partner.apk
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: gudiya-taxi-partner-debug-apk
-          path: extracted/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
+          path: Gudiya-Taxi-Partner.apk
           if-no-files-found: error
+
+      - name: Publish public APK download link
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Gudiya Taxi Partner Latest APK
+          target_commitish: main
+          make_latest: true
+          overwrite_files: true
+          files: Gudiya-Taxi-Partner.apk
