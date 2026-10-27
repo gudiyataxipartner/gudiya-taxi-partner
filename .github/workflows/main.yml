@@ -1,58 +1,33 @@
-name: Gudiya Taxi Partner Android Build and APK Download
-
+name: Build and publish Gudiya Taxi Partner APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: ["main"]
     paths:
       - "Gudiya-Taxi-Partner-New-Project.zip"
-      - ".github/workflows/main.yml"
-
 permissions:
   contents: write
-
 jobs:
-  build-apk:
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up Java 17
+      - name: Extract app source
+        run: unzip -o Gudiya-Taxi-Partner-New-Project.zip -d app-source
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Extract and validate source ZIP
-        run: | set -e rm -rf extracted test -s Gudiya-Taxi-Partner-New-Project.zip unzip -o Gudiya-Taxi-Partner-New-Project.zip -d extracted test -f extracted/GudiyaTaxiPartner/settings.gradle.kts test -f extracted/GudiyaTaxiPartner/app/build.gradle.kts test -f extracted/GudiyaTaxiPartner/app/src/main/java/com/gudiyataxipartner/MainActivity.java echo "Source ZIP validation passed" 
-      - name: Build Android APK
-        working-directory: extracted/GudiyaTaxiPartner
+      - name: Build APK
+        working-directory: app-source/GudiyaTaxiPartner
         run: gradle assembleDebug
-
-      - name: Validate APK
-        run: test -s extracted/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Rename APK for direct download
-        run: cp extracted/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk Gudiya-Taxi-Partner.apk
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gudiya-taxi-partner-debug-apk
-          path: Gudiya-Taxi-Partner.apk
-          if-no-files-found: error
-
-      - name: Publish public APK download link
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest-apk
-          name: Gudiya Taxi Partner Latest APK
-          target_commitish: main
-          make_latest: true
-          overwrite_files: true
-          files: Gudiya-Taxi-Partner.apk
+      - name: Verify APK
+        run: test -s app-source/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: | gh release view latest >/dev/null 2>&1 || gh release create latest --title "Gudiya Taxi Partner APK" --notes "Latest APK download for Gudiya Taxi Partner." --latest gh release upload latest app-source/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk#app-debug.apk --clobber gh release edit latest --title "Gudiya Taxi Partner APK" --notes "Latest APK download for Gudiya Taxi Partner." --latest
