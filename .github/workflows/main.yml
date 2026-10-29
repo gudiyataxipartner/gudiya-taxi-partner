@@ -1,4 +1,3 @@
-
 name: Build and publish Gudiya Taxi Partner APK
 
 on:
@@ -39,9 +38,37 @@ jobs:
           test -f app-source/GudiyaTaxiPartner/app/build.gradle.kts
           test -f app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
 
-      - name: Build APK
+      - name: Prepare stable signing key
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64" || (echo "Missing repository secret ANDROID_KEYSTORE_BASE64"; exit 1)
+          mkdir -p app-source/GudiyaTaxiPartner/app
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app-source/GudiyaTaxiPartner/app/gudiya-release.jks
+          test -s app-source/GudiyaTaxiPartner/app/gudiya-release.jks
+
+      - name: Read app version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_NAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app-source/GudiyaTaxiPartner/app/build.gradle.kts | head -n1)
+          test -n "$VERSION_NAME"
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+
+      - name: Build APK with stable signing key
         working-directory: app-source/GudiyaTaxiPartner
-        run: gradle assembleDebug
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || (echo "Missing repository secret ANDROID_KEYSTORE_PASSWORD"; exit 1)
+          test -n "$ANDROID_KEY_PASSWORD" || (echo "Missing repository secret ANDROID_KEY_PASSWORD"; exit 1)
+          test -n "$ANDROID_KEY_ALIAS" || (echo "Missing repository secret ANDROID_KEY_ALIAS"; exit 1)
+          gradle assembleDebug
 
       - name: Verify APK
         shell: bash
@@ -66,7 +93,8 @@ jobs:
           name: Latest Gudiya Taxi Partner APK
           body: |
             Latest Android APK for Gudiya Taxi Partner.
-            Download gudiya-taxi-partner.apk to install the app.
+            Version: ${{ env.VERSION_NAME }}
+            Download gudiya-taxi-partner.apk to install or update the app.
           target_commitish: main
           files: gudiya-taxi-partner.apk
           overwrite_files: true
