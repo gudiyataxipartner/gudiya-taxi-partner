@@ -56,10 +56,56 @@ jobs:
               raise SystemExit("Duty contact UI patch target was not found; refusing to build.")
           html.write_text(content, encoding="utf-8")
 
+          # Restore the missing Accept action and make it available only to
+          # eligible driver accounts for open duties whose details are unlocked.
+          fixes = [
+              (
+                  "canAccept=!!getToken()&&apiReady()&&d.status==='open'&&/^\\d+$/.test(id),phone=",
+                  "canAccept=!!getToken()&&apiReady()&&['driver','both'].includes(currentUser?.roleMode||currentUser?.role_mode)&&!isOwner&&!d.acceptedByMe&&d.status==='open'&&available&&/^\\d+$/.test(id),phone=",
+              ),
+              (
+                  ";const share=`<button class=\"btn outline\"",
+                  ";const accept=canAccept?'<button class=\"btn teal\" style=\"margin-top:10px\" onclick=\"acceptDuty(\\\\''+esc(id)+'\\\\',this)\">✅ ड्यूटी स्वीकार करें</button>':'';const share=`<button class=\"btn outline\"",
+              ),
+              ("${contact}${share}", "${contact}${accept}${share}"),
+              (
+                  '<select id="qvehicle"><option value="">सभी गाड़ियाँ</option><option>सेडान</option><option>हैचबैक</option><option>एसयूवी</option><option>इनोवा / क्रिस्टा</option><option>टेम्पो ट्रैवलर</option><option>अन्य</option></select>',
+                  '<select id="qvehicle"><option value="">सभी गाड़ियाँ</option><option value="sedan">सेडान</option><option value="hatchback">हैचबैक</option><option value="suv">एसयूवी</option><option value="innova">इनोवा / क्रिस्टा</option><option value="ertiga">Ertiga</option><option value="dzire">Dzire</option><option value="tempo">टेम्पो ट्रैवलर</option><option value="other">अन्य</option></select>',
+              ),
+              (
+                  "function filterDutyResults(list){const date=document.getElementById('qdate')?.value||'',vehicle=document.getElementById('qvehicle')?.value||'';return list.filter(d=>{const dd=d.dutyDate||d.duty_date||'',vv=d.vehicleType||d.vehicle_type||'';return (!date||String(dd).slice(0,10)===date)&&(!vehicle||String(vv).toLowerCase()===vehicle.toLowerCase())})}",
+                  "function filterDutyResults(list){const date=document.getElementById('qdate')?.value||'',vehicle=document.getElementById('qvehicle')?.value||'';const patterns={sedan:/(sedan|सेडान|dzire|swift)/i,hatchback:/(hatchback|हैचबैक)/i,suv:/(suv|एसयूवी|xylo|tavera|ertiga)/i,innova:/(innova|इनोवा)/i,ertiga:/(ertiga|अर्टिगा)/i,dzire:/(dzire|swift|डिजायर)/i,tempo:/(tempo|traveller|टेम्पो)/i,other:/^(अन्य|other)$/i};return list.filter(d=>{const dd=d.dutyDate||d.duty_date||'',vv=String(d.vehicleType||d.vehicle_type||'');return (!date||String(dd).slice(0,10)===date)&&(!vehicle||(patterns[vehicle]?patterns[vehicle].test(vv):true))})}",
+              ),
+              (
+                  "const q=new URLSearchParams();if(from)q.set('pickup',from);if(to)q.set('drop',to);const data=await apiRequest('/api/duties?'+q.toString());",
+                  "const q=new URLSearchParams();if(from)q.set('pickup',from);if(to)q.set('drop',to);const date=document.getElementById('qdate')?.value||'',vehicle=document.getElementById('qvehicle')?.value||'';if(date)q.set('date',date);if(vehicle)q.set('vehicle',vehicle);const data=await apiRequest('/api/duties?'+q.toString());",
+              ),
+              (
+                  "}catch(serverError){if(editingDutyId){alert(serverError.message||'ड्यूटी अपडेट नहीं हो सकी।');return}saveLocalDuty(duty);resetDutyForm();alert('सर्वर से सेव नहीं हो पाई, इसलिए ड्यूटी इस फोन में डेमो के रूप में सेव कर दी गई है। इंटरनेट/सर्वर ठीक होने पर इसे दोबारा पोस्ट करें।');show('myduties');return}",
+                  "}catch(serverError){alert((editingDutyId?'ड्यूटी अपडेट नहीं हो सकी: ':'ड्यूटी सर्वर पर पोस्ट नहीं हुई: ')+(serverError.message||'कृपया इंटरनेट/API जाँचकर फिर प्रयास करें।')+' आपके भरे हुए विवरण फॉर्म में सुरक्षित हैं।');return}",
+              ),
+              (
+                  "async function refreshMembership(){if(!getToken()||!apiReady())return;try{const d=await apiRequest('/api/membership');const box=document.getElementById('paymentMessage');if(box){box.className=d.active?'success':'warn';box.textContent=d.active?('आपकी '+(d.subscription?.amount_rupees||'चुनी गई')+' रुपये की सदस्यता सक्रिय है।'):('सदस्यता सक्रिय नहीं है। स्थिति: '+(d.subscription?.status||'शुरू नहीं हुई')+'.')} }catch(e){}}",
+                  "async function refreshMembership(){if(!getToken()||!apiReady())return;const box=document.getElementById('paymentMessage');try{const d=await apiRequest('/api/membership');if(box){box.className=d.active?'success':'warn';box.textContent=d.active?('आपकी '+(d.subscription?.amount_rupees||'चुनी गई')+' रुपये की सदस्यता सक्रिय है।'):('सदस्यता सक्रिय नहीं है। स्थिति: '+(d.subscription?.status||'शुरू नहीं हुई')+'.')}}catch(e){if(box){box.className='warn';box.textContent='सदस्यता स्थिति लोड नहीं हुई: '+e.message}}}",
+              ),
+          ]
+          for old, new in fixes:
+              if old not in content:
+                  raise SystemExit('User App audit fix target missing; refusing to build: ' + old[:100])
+              content = content.replace(old, new, 1)
+
+          # Refresh the open duty list periodically as a fallback for membership
+          # changes that do not emit a duty SSE event.
+          focus_anchor = "window.addEventListener('focus',refreshVisibleDutyFeed);"
+          if focus_anchor not in content:
+              raise SystemExit('Duty refresh insertion point missing; refusing to build.')
+          content = content.replace(focus_anchor, focus_anchor + "\\nsetInterval(refreshVisibleDutyFeed,15000);", 1)
+          html.write_text(content, encoding="utf-8")
+
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 13", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.2.1"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 14", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.2.2"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           gradle.write_text(build, encoding="utf-8")
