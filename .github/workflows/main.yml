@@ -65,7 +65,7 @@ jobs:
               ),
               (
                   ";const share=`<button class=\"btn outline\"",
-                  ";const accept=canAccept?'<button class=\"btn teal\" style=\"margin-top:10px\" onclick=\"acceptDuty(\\\\''+esc(id)+'\\\\',this)\">✅ ड्यूटी स्वीकार करें</button>':'';const share=`<button class=\"btn outline\"",
+                  ";const accept=canAccept?'<button class=\"btn teal\" style=\"margin-top:10px\" onclick=\"acceptDuty(\\''+esc(id)+'\\',this)\">✅ ड्यूटी स्वीकार करें</button>':'';const share=`<button class=\"btn outline\"",
               ),
               ("${contact}${share}", "${contact}${accept}${share}"),
               (
@@ -99,7 +99,7 @@ jobs:
           focus_anchor = "window.addEventListener('focus',refreshVisibleDutyFeed);"
           if focus_anchor not in content:
               raise SystemExit('Duty refresh insertion point missing; refusing to build.')
-          content = content.replace(focus_anchor, focus_anchor + "\\nsetInterval(refreshVisibleDutyFeed,15000);", 1)
+          content = content.replace(focus_anchor, focus_anchor + "\nsetInterval(refreshVisibleDutyFeed,15000);", 1)
           html.write_text(content, encoding="utf-8")
 
           gradle = root / "app/build.gradle.kts"
