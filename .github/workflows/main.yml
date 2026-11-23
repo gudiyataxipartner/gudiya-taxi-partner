@@ -113,18 +113,85 @@ jobs:
           content = content.replace(old_posted, "${esc(formatDutyPostedAt(d.createdAt||d.created_at||''))}", 1)
 
           html.write_text(content, encoding="utf-8")
-          # Refresh the open duty list periodically as a fallback for membership
-          # changes that do not emit a duty SSE event.
-          focus_anchor = "window.addEventListener('focus',refreshVisibleDutyFeed);"
-          if focus_anchor not in content:
-              raise SystemExit('Duty refresh insertion point missing; refusing to build.')
-          content = content.replace(focus_anchor, focus_anchor + "\nsetInterval(refreshVisibleDutyFeed,15000);", 1)
+# Duty refresh: ignore SSE connection handshakes and refresh only on real duty changes.
+          old_sse_handler = "if(event.includes('event: duty-update'))refreshVisibleDutyFeed();"
+          new_sse_handler = r"""const eventName=(event.match(/^event:\s*(.+)$/m)||[])[1]||'';
+              const dataText=event.split(/\r?\n/).filter(line=>line.startsWith('data:')).map(line=>line.slice(5).trim()).join('\n');
+              if(eventName==='duty-update'&&dataText){try{const payload=JSON.parse(dataText);if(payload&&payload.type==='duties-changed')refreshVisibleDutyFeed();}catch(e){}}"""
+          if old_sse_handler not in content:
+              raise SystemExit("Duty SSE handler target missing; refusing to build.")
+          content = content.replace(old_sse_handler, new_sse_handler, 1)
+
+          # Coalesce focus/visibility/SSE callbacks; automatic list refreshes are
+          # limited to one every 5 seconds and only while the relevant screen is visible.
+          refresh_pattern = r"function refreshVisibleDutyFeed\(\)\{[\s\S]*?\n\}"
+          refresh_replacement = r"""function refreshVisibleDutyFeed(){
+           if(document.hidden||!getToken()||!apiReady())return;
+           const search=document.getElementById('search');
+           const mine=document.getElementById('myduties');
+           if((!search||search.classList.contains('hidden'))&&(!mine||mine.classList.contains('hidden')))return;
+           if(window.__gudiyaDutyFeedRefreshTimer)clearTimeout(window.__gudiyaDutyFeedRefreshTimer);
+           const elapsed=Date.now()-(window.__gudiyaLastDutyFeedRefresh||0);
+           const wait=Math.max(400,5000-elapsed);
+           window.__gudiyaDutyFeedRefreshTimer=setTimeout(()=>{
+            window.__gudiyaDutyFeedRefreshTimer=null;
+            if(document.hidden||!getToken()||!apiReady())return;
+            const currentSearch=document.getElementById('search');
+            const currentMine=document.getElementById('myduties');
+            if(currentSearch&&!currentSearch.classList.contains('hidden')){
+             window.__gudiyaLastDutyFeedRefresh=Date.now();
+             renderSearch(true);
+            }else if(currentMine&&!currentMine.classList.contains('hidden')){
+             window.__gudiyaLastDutyFeedRefresh=Date.now();
+             renderMine(true);
+            }
+           },wait);
+          }"""
+          content, refresh_count = re.subn(refresh_pattern, lambda match: refresh_replacement, content, count=1)
+          if refresh_count != 1:
+              raise SystemExit("Duty refresh function target missing; refusing to build.")
+
+          # Quiet background refreshes so the existing My Duties list remains on-screen.
+          # Prevent overlapping requests and run one coalesced follow-up when needed.
+          mine_pattern = r"async function renderMine\(\)\{[\s\S]*?\}\nfunction resetDutyForm"
+          mine_replacement = r"""async function renderMine(silent=false){
+           const box=document.getElementById('myDutyList');
+           if(!getToken()||!apiReady()){
+            const local=getLocalDuties();
+            box.innerHTML=local.length?local.map(d=>apiDutyCard({...d,isOwner:true,detailsAvailable:true,freeWindowSecondsRemaining:null})).join(''):'<div class="card empty">इस फोन पर अभी कोई ड्यूटी सेव नहीं है।</div>';
+            return;
+           }
+           if(window.__gudiyaMineRefreshInFlight){window.__gudiyaMineRefreshPending=true;return;}
+           window.__gudiyaMineRefreshInFlight=true;
+           if(!silent)box.innerHTML='<div class="card empty">आपकी ड्यूटी लोड हो रही है…</div>';
+           try{
+            const [mine,accepted]=await Promise.all([apiRequest('/api/duties/mine'),apiRequest('/api/duties/accepted')]);
+            const posted=(mine.duties||[]).map(d=>({...d,isOwner:(d.sourceType||d.source_type)!=='whatsapp',detailsAvailable:true,freeWindowSecondsRemaining:null}));
+            const taken=(accepted.duties||[]).map(d=>({...d,detailsAvailable:true,acceptedByMe:true}));
+            const all=[...posted,...taken];
+            box.innerHTML=all.length?'<h3>आपकी पोस्ट की गई ड्यूटी</h3>'+ (posted.length?posted.map(d=>apiDutyCard(d)).join(''):'<div class="card empty">अभी आपने कोई ड्यूटी पोस्ट नहीं की।</div>')+'<h3>आपके द्वारा स्वीकार की गई ड्यूटी</h3>'+(taken.length?taken.map(d=>apiDutyCard(d)).join(''):'<div class="card empty">अभी आपने कोई ड्यूटी स्वीकार नहीं की।</div>'):'<div class="card empty">अभी कोई ड्यूटी पोस्ट या स्वीकार नहीं की गई है।</div>';
+           }catch(e){
+            const local=getLocalDuties();
+            box.innerHTML=local.length?'<div class="warn">सर्वर उपलब्ध नहीं; फोन में सेव डेमो ड्यूटी दिखाई जा रही हैं।</div>'+local.map(d=>apiDutyCard({...d,detailsAvailable:true})).join(''):'<div class="warn">ड्यूटी लोड नहीं हुई: '+esc(e.message)+'</div>';
+           }finally{
+            window.__gudiyaMineRefreshInFlight=false;
+            if(window.__gudiyaMineRefreshPending){
+             window.__gudiyaMineRefreshPending=false;
+             refreshVisibleDutyFeed();
+            }
+           }
+          }
+          function resetDutyForm"""
+          content, mine_count = re.subn(mine_pattern, lambda match: mine_replacement, content, count=1)
+          if mine_count != 1:
+              raise SystemExit("My Duties function target missing; refusing to build.")
+
           html.write_text(content, encoding="utf-8")
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 18", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.2.6"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 19", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.2.7"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           gradle.write_text(build, encoding="utf-8")
