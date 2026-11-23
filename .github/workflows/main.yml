@@ -103,7 +103,7 @@ jobs:
 
           # Format any raw ISO timestamp as Indian local date/time.
           card_anchor = "function apiDutyCard(d){"
-          formatter = "function formatDutyPostedAt(value){const date=new Date(value);if(Number.isNaN(date.getTime()))return String(value||'');return new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(date)}\\n"
+          formatter = "function formatDutyPostedAt(value){const date=new Date(value);if(Number.isNaN(date.getTime()))return String(value||'');return new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(date)}" + "\n"
           if card_anchor not in content:
               raise SystemExit("Duty card insertion point missing; refusing to build.")
           content = content.replace(card_anchor, formatter + card_anchor, 1)
@@ -129,6 +129,15 @@ jobs:
               raise SystemExit("Could not safely increment Android app version.")
           gradle.write_text(build, encoding="utf-8")
           PY
+          # Fail the APK build if any inline WebView JavaScript is syntactically invalid.
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script\\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
+          Path("/tmp/gudiya-inline.js").write_text("\\n".join(scripts), encoding="utf-8")
+          PY
+          node --check /tmp/gudiya-inline.js
 
       - name: Prepare stable signing key
         shell: bash
