@@ -205,12 +205,54 @@ jobs:
           if mine_count != 1:
               raise SystemExit("My Duties function target missing; refusing to build.")
 
+          # WhatsApp-imported duties must never expose the group title or raw group message.
+          # Show only the sender/travel-agent name and phone number.
+          poster_helper = r"""function cleanWhatsAppDisplayName(value){
+           let name=String(value||'').trim();
+           if(!name)return '';
+           const groupHeader=name.match(/\(\s*\d+\s+messages?\s*\)\s*:\s*~?\s*(.+)$/i);
+           if(groupHeader&&groupHeader[1].trim())name=groupHeader[1].trim();
+           else{const tilde=name.lastIndexOf('~');if(tilde>=0&&name.slice(tilde+1).trim())name=name.slice(tilde+1).trim();}
+           name=name.replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g,'').trim();
+           name=name.replace(/\s*[·|,]?\s*(?:\+?91[\s-]?)?[6-9]\d{9}\s*$/,'').trim();
+           return name;
+          }
+          """
+          card_anchor = "function apiDutyCard(d){"
+          if card_anchor not in content:
+              raise SystemExit("Duty card function target missing; refusing to build.")
+          if "function cleanWhatsAppDisplayName(value)" not in content:
+              content = content.replace(card_anchor, poster_helper + "\n" + card_anchor, 1)
+
+          old_owner_fields = "ownerName=d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',sourceGroup=d.sourceGroup||d.source_group||'',createdAt="
+          new_owner_fields = "isWhatsApp=String(d.sourceType||d.source_type||'').toLowerCase()==='whatsapp'||!!(d.sourcePosterName||d.source_poster_name),ownerName=cleanWhatsAppDisplayName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||''),createdAt="
+          if old_owner_fields not in content:
+              raise SystemExit("Duty poster fields target missing; refusing to build.")
+          content = content.replace(old_owner_fields, new_owner_fields, 1)
+
+          display_start_marker = '${available?`<div class="notice duty-notes">'
+          display_end_marker = ":'<div class=\"notice\">गैर-सदस्य के लिए पूरी जानकारी पहले 5 मिनट लॉक रहेगी। 5 मिनट बाद अपने-आप खुल जाएगी; सदस्य को पूरी जानकारी तुरंत दिखेगी।</div>'}"
+          display_start = content.find(display_start_marker)
+          display_end = content.find(display_end_marker, display_start)
+          if display_start < 0 or display_end < 0:
+              raise SystemExit("Duty card details display target missing; refusing to build.")
+          display_end += len(display_end_marker)
+          new_display = r"""${available?(isWhatsApp?`<div class="notice duty-poster">पोस्ट करने वाले: <b>${esc(ownerName||'नाम उपलब्ध नहीं')}</b> · ${esc(phone||'मोबाइल नंबर उपलब्ध नहीं')}</div>`:`<div class="notice duty-notes">जानकारी: ${esc(d.notes||d.notes_private||'—')}</div>${ownerName?`<div class="notice duty-poster">पोस्ट करने वाले: <b>${esc(ownerName)}</b> · ${esc(phone||'मोबाइल नंबर उपलब्ध नहीं')}</div>`:''}`):'<div class="notice">गैर-सदस्य के लिए पूरी जानकारी पहले 5 मिनट लॉक रहेगी। 5 मिनट बाद अपने-आप खुल जाएगी; सदस्य को पूरी जानकारी तुरंत दिखेगी।</div>'}"""
+          content = content[:display_start] + new_display + content[display_end:]
+
+          # The WhatsApp share action also must not copy the original group message.
+          old_raw_note = "अन्य जानकारी: ${d.notes||d.notes_private||'—'}"
+          new_raw_note = "अन्य जानकारी: ${String(d.sourceType||d.source_type||'').toLowerCase()==='whatsapp'?'—':(d.notes||d.notes_private||'—')}"
+          if old_raw_note not in content:
+              raise SystemExit("WhatsApp share message notes target missing; refusing to build.")
+          content = content.replace(old_raw_note, new_raw_note, 1)
+
           html.write_text(content, encoding="utf-8")
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 20", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.2.8"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 21", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.2.9"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           gradle.write_text(build, encoding="utf-8")
