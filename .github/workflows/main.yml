@@ -95,6 +95,30 @@ jobs:
                   raise SystemExit('User App audit fix target missing; refusing to build: ' + old[:100])
               content = content.replace(old, new, 1)
 
+          # Prefer the server-cleaned WhatsApp poster name over raw group metadata.
+          old_owner = "ownerName=d.sourcePosterName||d.source_poster_name||d.posterName||d.poster_name||''"
+          if old_owner not in content:
+              raise SystemExit("Poster name rendering target missing; refusing to build.")
+          content = content.replace(old_owner, "ownerName=d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||''", 1)
+
+          # Remove the group-name row from user-facing duty cards.
+          group_row = """${sourceGroup?`<div class="notice">WhatsApp ग्रुप: <b>${esc(sourceGroup)}</b></div>`:'' }""".replace(":'' }", ":''}")
+          if group_row not in content:
+              raise SystemExit("WhatsApp group display target missing; refusing to build.")
+          content = content.replace(group_row, "", 1)
+
+          # Format any raw ISO timestamp as Indian local date/time.
+          card_anchor = "function apiDutyCard(d){"
+          formatter = "function formatDutyPostedAt(value){const date=new Date(value);if(Number.isNaN(date.getTime()))return String(value||'');return new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(date)}\\n"
+          if card_anchor not in content:
+              raise SystemExit("Duty card insertion point missing; refusing to build.")
+          content = content.replace(card_anchor, formatter + card_anchor, 1)
+          old_posted = "${esc(d.createdAt||d.created_at||'')}"
+          if old_posted not in content:
+              raise SystemExit("Duty posted-at display target missing; refusing to build.")
+          content = content.replace(old_posted, "${esc(formatDutyPostedAt(d.createdAt||d.created_at||''))}", 1)
+
+          html.write_text(content, encoding="utf-8")
           # Refresh the open duty list periodically as a fallback for membership
           # changes that do not emit a duty SSE event.
           focus_anchor = "window.addEventListener('focus',refreshVisibleDutyFeed);"
@@ -105,8 +129,8 @@ jobs:
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 15", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.2.3"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 16", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.2.4"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           gradle.write_text(build, encoding="utf-8")
