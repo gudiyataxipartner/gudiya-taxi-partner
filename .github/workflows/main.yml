@@ -110,7 +110,7 @@ jobs:
            return name;
           }
           """
-          content = content.replace(old_owner, "ownerName=cleanWhatsAppPosterName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',d.sourceGroup||d.source_group||''),", 1)
+          content = content.replace(old_owner, "ownerName=cleanWhatsAppPosterName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',d.sourceGroup||d.source_group||'')", 1)
           card_anchor = "function apiDutyCard(d){"
           if card_anchor not in content:
               raise SystemExit("Duty card insertion point missing for WhatsApp name sanitizer.")
@@ -262,8 +262,8 @@ jobs:
           from pathlib import Path
           import re
           html = Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script\\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
-          Path("/tmp/gudiya-inline.js").write_text("\\n".join(scripts), encoding="utf-8")
+          scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
+          Path("/tmp/gudiya-inline.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/gudiya-inline.js
 
