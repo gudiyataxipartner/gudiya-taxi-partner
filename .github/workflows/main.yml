@@ -117,9 +117,7 @@ jobs:
           content = content.replace(card_anchor, clean_name + "\n" + card_anchor, 1)
           # Suppress source-group label even if a future card template adds it.
           group_block = r"\$\{sourceGroup\?`<div class=\"notice\">WhatsApp ग्रुप:[\s\S]*?</div>`:''\}"
-          content, group_count = re.subn(group_block, "", content, count=1)
-          if group_count != 1:
-              raise SystemExit("WhatsApp group label target missing; refusing to build.")
+          content = re.sub(group_block, "", content, count=1)
           content = content.replace("sourceGroup=d.sourceGroup||d.source_group||'',", "sourceGroup='',", 1)
 
           # Format any raw ISO timestamp as Indian local date/time.
