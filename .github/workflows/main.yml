@@ -207,8 +207,8 @@ jobs:
 
           # WhatsApp-imported duties must never expose the group title or raw group message.
           # Reuse the sanitizer already added above by the existing audit patch.
-          old_owner_fields = "ownerName=cleanWhatsAppPosterName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',d.sourceGroup||d.source_group||''),createdAt="
-          new_owner_fields = "isWhatsApp=String(d.sourceType||d.source_type||'').toLowerCase()==='whatsapp'||!!(d.sourcePosterName||d.source_poster_name||d.sourceGroup||d.source_group),ownerName=cleanWhatsAppPosterName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',d.sourceGroup||d.source_group||''),createdAt="
+          old_owner_fields = "ownerName=cleanWhatsAppPosterName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',d.sourceGroup||d.source_group||''),sourceGroup=d.sourceGroup||d.source_group||'',createdAt="
+          new_owner_fields = "isWhatsApp=String(d.sourceType||d.source_type||'').toLowerCase()==='whatsapp'||!!(d.sourcePosterName||d.source_poster_name||d.sourceGroup||d.source_group),ownerName=cleanWhatsAppPosterName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',d.sourceGroup||d.source_group||''),sourceGroup=d.sourceGroup||d.source_group||'',createdAt="
           if old_owner_fields not in content:
               raise SystemExit("Duty poster fields target missing; refusing to build.")
           content = content.replace(old_owner_fields, new_owner_fields, 1)
