@@ -95,11 +95,32 @@ jobs:
                   raise SystemExit('User App audit fix target missing; refusing to build: ' + old[:100])
               content = content.replace(old, new, 1)
 
-          # Prefer the server-cleaned WhatsApp poster name over raw group metadata.
+          # Never show WhatsApp group metadata in a duty card. Normalize the
+          # poster label because Android notification titles can arrive as
+          # "Group name (7 messages): ~ Actual sender".
           old_owner = "ownerName=d.sourcePosterName||d.source_poster_name||d.posterName||d.poster_name||''"
           if old_owner not in content:
               raise SystemExit("Poster name rendering target missing; refusing to build.")
-          content = content.replace(old_owner, "ownerName=d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||''", 1)
+          clean_name = r"""function cleanWhatsAppPosterName(value,group){
+           let name=String(value||'').trim();
+           const groupName=String(group||'').trim();
+           if(groupName&&name.toLowerCase().startsWith(groupName.toLowerCase()))name=name.slice(groupName.length).replace(/^\s*(?:\(\s*\d+\s+messages?\s*\))?\s*[:：\-–]\s*/i,'');
+           name=name.replace(/^.*?\(\s*\d+\s+messages?\s*\)\s*[:：]\s*/i,'').replace(/^~\s*/,'').split(/\r?\n/)[0].trim();
+           if(/^\d+\s+messages?$/i.test(name)||/^whatsapp\s*$/i.test(name))return '';
+           return name;
+          }
+          """
+          content = content.replace(old_owner, "ownerName=cleanWhatsAppPosterName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',d.sourceGroup||d.source_group||''),", 1)
+          card_anchor = "function apiDutyCard(d){"
+          if card_anchor not in content:
+              raise SystemExit("Duty card insertion point missing for WhatsApp name sanitizer.")
+          content = content.replace(card_anchor, clean_name + "\n" + card_anchor, 1)
+          # Suppress source-group label even if a future card template adds it.
+          group_block = r"\$\{sourceGroup\?`<div class=\"notice\">WhatsApp ग्रुप:[\s\S]*?</div>`:''\}"
+          content, group_count = re.subn(group_block, "", content, count=1)
+          if group_count != 1:
+              raise SystemExit("WhatsApp group label target missing; refusing to build.")
+          content = content.replace("sourceGroup=d.sourceGroup||d.source_group||'',", "sourceGroup='',", 1)
 
           # Format any raw ISO timestamp as Indian local date/time.
           card_anchor = "function apiDutyCard(d){"
@@ -190,8 +211,8 @@ jobs:
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 19", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.2.7"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 20", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.2.8"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           gradle.write_text(build, encoding="utf-8")
