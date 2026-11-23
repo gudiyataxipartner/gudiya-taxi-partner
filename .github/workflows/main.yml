@@ -113,7 +113,7 @@ jobs:
           content = content.replace(old_posted, "${esc(formatDutyPostedAt(d.createdAt||d.created_at||''))}", 1)
 
           html.write_text(content, encoding="utf-8")
-# Duty refresh: ignore SSE connection handshakes and refresh only on real duty changes.
+          # Duty refresh: ignore SSE connection handshakes and refresh only on real duty changes.
           old_sse_handler = "if(event.includes('event: duty-update'))refreshVisibleDutyFeed();"
           new_sse_handler = r"""const eventName=(event.match(/^event:\s*(.+)$/m)||[])[1]||'';
               const dataText=event.split(/\r?\n/).filter(line=>line.startsWith('data:')).map(line=>line.slice(5).trim()).join('\n');
