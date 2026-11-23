@@ -206,26 +206,9 @@ jobs:
               raise SystemExit("My Duties function target missing; refusing to build.")
 
           # WhatsApp-imported duties must never expose the group title or raw group message.
-          # Show only the sender/travel-agent name and phone number.
-          poster_helper = r"""function cleanWhatsAppDisplayName(value){
-           let name=String(value||'').trim();
-           if(!name)return '';
-           const groupHeader=name.match(/\(\s*\d+\s+messages?\s*\)\s*:\s*~?\s*(.+)$/i);
-           if(groupHeader&&groupHeader[1].trim())name=groupHeader[1].trim();
-           else{const tilde=name.lastIndexOf('~');if(tilde>=0&&name.slice(tilde+1).trim())name=name.slice(tilde+1).trim();}
-           name=name.replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g,'').trim();
-           name=name.replace(/\s*[·|,]?\s*(?:\+?91[\s-]?)?[6-9]\d{9}\s*$/,'').trim();
-           return name;
-          }
-          """
-          card_anchor = "function apiDutyCard(d){"
-          if card_anchor not in content:
-              raise SystemExit("Duty card function target missing; refusing to build.")
-          if "function cleanWhatsAppDisplayName(value)" not in content:
-              content = content.replace(card_anchor, poster_helper + "\n" + card_anchor, 1)
-
-          old_owner_fields = "ownerName=d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',sourceGroup=d.sourceGroup||d.source_group||'',createdAt="
-          new_owner_fields = "isWhatsApp=String(d.sourceType||d.source_type||'').toLowerCase()==='whatsapp'||!!(d.sourcePosterName||d.source_poster_name),ownerName=cleanWhatsAppDisplayName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||''),createdAt="
+          # Reuse the sanitizer already added above by the existing audit patch.
+          old_owner_fields = "ownerName=cleanWhatsAppPosterName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',d.sourceGroup||d.source_group||''),createdAt="
+          new_owner_fields = "isWhatsApp=String(d.sourceType||d.source_type||'').toLowerCase()==='whatsapp'||!!(d.sourcePosterName||d.source_poster_name||d.sourceGroup||d.source_group),ownerName=cleanWhatsAppPosterName(d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||'',d.sourceGroup||d.source_group||''),createdAt="
           if old_owner_fields not in content:
               raise SystemExit("Duty poster fields target missing; refusing to build.")
           content = content.replace(old_owner_fields, new_owner_fields, 1)
