@@ -102,10 +102,9 @@ jobs:
           content = content.replace(old_owner, "ownerName=d.posterName||d.poster_name||d.sourcePosterName||d.source_poster_name||''", 1)
 
           # Remove the group-name row from user-facing duty cards.
-          group_row = """${sourceGroup?`<div class="notice">WhatsApp ग्रुप: <b>${esc(sourceGroup)}</b></div>`:'' }""".replace(":'' }", ":''}")
-          if group_row not in content:
+          content, group_count = re.subn(r"\$\{sourceGroup\?`<div class=\"notice\">WhatsApp ग्रुप:.*?</div>`:\s*\'\'\}", "", content, count=1, flags=re.S)
+          if group_count != 1:
               raise SystemExit("WhatsApp group display target missing; refusing to build.")
-          content = content.replace(group_row, "", 1)
 
           # Format any raw ISO timestamp as Indian local date/time.
           card_anchor = "function apiDutyCard(d){"
