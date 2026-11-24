@@ -417,8 +417,10 @@ jobs:
           positions = [nav_html.find(item) for item in required_order]
           if any(position < 0 for position in positions) or positions != sorted(positions):
               raise SystemExit("Bottom navigation order validation failed.")
-          vehicle_entry = re.search(r'<button\\b[^>]*data-page="vehicles"[^>]*>.*?</button>', nav_html, flags=re.S)
-          if not vehicle_entry or 'उपलब्ध गाड़ियाँ</button>' not in vehicle_entry.group(0) or "show('vehicles')" not in vehicle_entry.group(0):
+          vehicle_start = nav_html.find('<button data-page="vehicles"')
+          vehicle_end = nav_html.find('</button>', vehicle_start)
+          vehicle_entry = nav_html[vehicle_start:vehicle_end + 9] if vehicle_start >= 0 and vehicle_end >= 0 else ''
+          if 'उपलब्ध गाड़ियाँ</button>' not in vehicle_entry or "show('vehicles')" not in vehicle_entry:
               raise SystemExit("Available Vehicles navigation label/action validation failed.")
 
           # Persist the final HTML after adding the fifth tab and vehicle page.
