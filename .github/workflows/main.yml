@@ -233,8 +233,9 @@ jobs:
           html.write_text(content, encoding="utf-8")
 
           # Add only the Available Vehicles page and its fifth bottom-navigation item.
-          old_nav = '<button data-page="account" onclick="show(\\'account\\')"><span>👤</span>अकाउंट</button>'
-          new_nav = old_nav + '\\n <button data-page="vehicles" aria-label="Available Vehicles" onclick="show(\\'vehicles\\')"><span>🚘</span>गाड़ियाँ</button>'
+          old_nav = """<button data-page="account" onclick="show('account')"><span>👤</span>अकाउंट</button>"""
+          new_nav = old_nav + """
+           <button data-page="vehicles" aria-label="Available Vehicles" onclick="show('vehicles')"><span>🚘</span>गाड़ियाँ</button>"""
           if content.count(old_nav) != 1:
               raise SystemExit("Bottom navigation insertion point missing.")
           content = content.replace(old_nav, new_nav, 1)
@@ -244,7 +245,7 @@ jobs:
               raise SystemExit("Bottom navigation grid rule not found exactly once.")
           content = content.replace(old_grid, "grid-template-columns:repeat(5,minmax(0,1fr))", 1)
 
-          page_anchor = '</main>\\n<nav class="nav">'
+          page_anchor = """</main>\n<nav class="nav">"""
           if content.count(page_anchor) != 1:
               raise SystemExit("Main page insertion point not found exactly once.")
           vehicles_section = r"""  <section id="vehicles" class="hidden">
@@ -314,7 +315,7 @@ jobs:
             if(isMine){
               const next=v.status==='available'?'unavailable':'available';
               const label=next==='available'?'फिर उपलब्ध करें':'Unavailable करें';
-              actions='<div class="row" style="margin-top:10px"><button class="btn outline" onclick="setAvailableVehicleStatus(\\''+id+'\\',\\''+next+'\\')">'+label+'</button><button class="btn" onclick="removeAvailableVehicle(\\''+id+'\\')">पोस्ट हटाएँ</button></div>';
+              actions='<div class="row" style="margin-top:10px"><button class="btn outline" onclick="setAvailableVehicleStatus('+id+',&#39;'+next+'&#39;)">'+label+'</button><button class="btn" onclick="removeAvailableVehicle('+id+')">पोस्ट हटाएँ</button></div>';
             }else if(phone){
               actions='<a class="btn outline" style="display:inline-block;margin-top:10px;text-decoration:none" href="tel:'+phone+'">📞 '+phone+' पर संपर्क करें</a>';
             }
@@ -325,7 +326,7 @@ jobs:
             const mine=document.getElementById('myAvailableVehicleList');
             if(!list||!mine)return;
             if(!getToken()||!apiReady()){
-              list.innerHTML='<div class="warn">उपलब्ध गाड़ियाँ देखने और पोस्ट करने के लिए पहले लॉगिन करें। <button class="btn outline" onclick="show(\\'account\\')">लॉगिन करें</button></div>';
+              list.innerHTML='<div class="warn">उपलब्ध गाड़ियाँ देखने और पोस्ट करने के लिए पहले लॉगिन करें। <button class="btn outline" onclick="show(&#39;account&#39;)">लॉगिन करें</button></div>';
               mine.innerHTML='<div class="card empty">लॉगिन करने के बाद आपकी गाड़ी की पोस्ट यहाँ दिखेगी।</div>';
               return;
             }
