@@ -232,6 +232,174 @@ jobs:
 
           html.write_text(content, encoding="utf-8")
 
+          # Add only the Available Vehicles page and its fifth bottom-navigation item.
+          old_nav = '<button data-page="account" onclick="show(\\'account\\')"><span>👤</span>अकाउंट</button>'
+          new_nav = old_nav + '\\n <button data-page="vehicles" aria-label="Available Vehicles" onclick="show(\\'vehicles\\')"><span>🚘</span>गाड़ियाँ</button>'
+          if content.count(old_nav) != 1:
+              raise SystemExit("Bottom navigation insertion point missing.")
+          content = content.replace(old_nav, new_nav, 1)
+
+          old_grid = "grid-template-columns:repeat(4,1fr)"
+          if content.count(old_grid) != 1:
+              raise SystemExit("Bottom navigation grid rule not found exactly once.")
+          content = content.replace(old_grid, "grid-template-columns:repeat(5,minmax(0,1fr))", 1)
+
+          page_anchor = '</main>\\n<nav class="nav">'
+          if content.count(page_anchor) != 1:
+              raise SystemExit("Main page insertion point not found exactly once.")
+          vehicles_section = r"""  <section id="vehicles" class="hidden">
+            <button class="back" onclick="show('home')">← होम पर जाएँ</button>
+            <div class="headrow"><h2>Available Vehicles</h2><button class="btn outline" onclick="loadAvailableVehicles()">↻ Refresh</button></div>
+            <div class="screen-intro">जब आपकी गाड़ी खाली हो, तो उसकी जानकारी यहाँ पोस्ट करें। दूसरे सदस्य उपलब्ध गाड़ियाँ देखकर आपसे संपर्क कर सकते हैं।</div>
+            <div class="card">
+              <h3>अपनी गाड़ी पोस्ट करें</h3>
+              <div class="field"><label>🚘 गाड़ी का प्रकार *</label><input id="availableVehicleType" maxlength="80" placeholder="जैसे Sedan, SUV, Innova, Ertiga"></div>
+              <div class="field"><label>गाड़ी का मॉडल</label><input id="availableVehicleModel" maxlength="120" placeholder="जैसे Innova Crysta 2022"></div>
+              <div class="field"><label>रजिस्ट्रेशन नंबर</label><input id="availableVehicleReg" maxlength="24" placeholder="जैसे RJ14 AB 1234" autocapitalize="characters"></div>
+              <div class="row">
+                <div class="field"><label>📍 शहर *</label><input id="availableVehicleCity" maxlength="120" placeholder="जैसे जयपुर"></div>
+                <div class="field"><label>सीटें</label><input id="availableVehicleSeats" type="number" min="1" max="50" value="4" inputmode="numeric"></div>
+              </div>
+              <div class="field"><label>कब से खाली है? *</label><input id="availableVehicleFrom" type="datetime-local" required></div>
+              <div class="field"><label>कब तक खाली रहेगी? (वैकल्पिक)</label><input id="availableVehicleUntil" type="datetime-local"></div>
+              <div class="field"><label>अन्य जानकारी (वैकल्पिक)</label><textarea id="availableVehicleNotes" maxlength="800" placeholder="जैसे AC, परमिट, सामान की जगह आदि"></textarea></div>
+              <button class="btn teal" id="availableVehiclePostBtn" onclick="postAvailableVehicle()">＋ गाड़ी उपलब्ध पोस्ट करें</button>
+              <div id="availableVehicleMessage" class="status-line" aria-live="polite"></div>
+            </div>
+            <div class="headrow"><h3>इस समय उपलब्ध गाड़ियाँ</h3></div>
+            <div id="availableVehicleList"><div class="card empty">गाड़ियाँ लोड हो रही हैं…</div></div>
+            <div class="headrow" style="margin-top:18px"><h3>मेरी पोस्ट की गई गाड़ियाँ</h3></div>
+            <div id="myAvailableVehicleList"><div class="card empty">आपकी पोस्ट लोड हो रही हैं…</div></div>
+          </section>
+          """
+          content = content.replace(page_anchor, vehicles_section + page_anchor, 1)
+
+          old_pages = "const pages=['home','search','post','myduties','account','membership'];"
+          new_pages = "const pages=['home','search','post','myduties','account','membership','vehicles'];"
+          if content.count(old_pages) != 1:
+              raise SystemExit("Page navigation list target missing exactly once.")
+          content = content.replace(old_pages, new_pages, 1)
+
+          old_show = "if(page==='search')renderSearch();if(page==='myduties')renderMine();if(page==='membership')refreshMembership();"
+          new_show = "if(page==='search')renderSearch();if(page==='myduties')renderMine();if(page==='membership')refreshMembership();if(page==='vehicles'){setAvailableVehicleDateDefaults();loadAvailableVehicles();}"
+          if content.count(old_show) != 1:
+              raise SystemExit("Page navigation handler target missing exactly once.")
+          content = content.replace(old_show, new_show, 1)
+
+          vehicle_js = r"""
+          function setAvailableVehicleDateDefaults(){
+            const field=document.getElementById('availableVehicleFrom');
+            if(field&&!field.value){
+              const local=new Date(Date.now()-new Date().getTimezoneOffset()*60000);
+              field.value=local.toISOString().slice(0,16);
+            }
+          }
+          function availableVehicleDateTime(value){
+            if(!value)return '—';
+            const date=new Date(value);
+            return Number.isNaN(date.getTime())?String(value):date.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+          }
+          function availableVehicleCard(v,isMine){
+            const id=String(v.id||'').replace(/\D/g,'');
+            const phone=String(v.owner_phone||'').replace(/\D/g,'').slice(-10);
+            const type=esc(v.vehicle_type||'गाड़ी');
+            const model=esc(v.vehicle_model||'');
+            const reg=esc(v.registration_number||'नहीं दिया');
+            const city=esc(v.city||'');
+            const seats=esc(v.seats||'—');
+            const from=availableVehicleDateTime(v.available_from);
+            const until=v.available_until?availableVehicleDateTime(v.available_until):'जब तक unavailable न करें';
+            const owner=esc(v.owner_name||'सदस्य');
+            let actions='';
+            if(isMine){
+              const next=v.status==='available'?'unavailable':'available';
+              const label=next==='available'?'फिर उपलब्ध करें':'Unavailable करें';
+              actions='<div class="row" style="margin-top:10px"><button class="btn outline" onclick="setAvailableVehicleStatus(\\''+id+'\\',\\''+next+'\\')">'+label+'</button><button class="btn" onclick="removeAvailableVehicle(\\''+id+'\\')">पोस्ट हटाएँ</button></div>';
+            }else if(phone){
+              actions='<a class="btn outline" style="display:inline-block;margin-top:10px;text-decoration:none" href="tel:'+phone+'">📞 '+phone+' पर संपर्क करें</a>';
+            }
+            return '<article class="card" style="margin-bottom:10px"><div class="itemtop"><h3 style="margin:0">'+type+(model?' · '+model:'')+'</h3><span class="pill">'+(v.status==='available'?'उपलब्ध':'Unavailable')+'</span></div><p>📍 '+city+' · '+seats+' सीटें</p><p>नंबर: '+reg+'</p><p>मालिक: '+owner+'</p><p>उपलब्ध: '+esc(from)+' से</p><p>उपलब्धता: '+esc(until)+' तक</p>'+(v.notes?'<p>'+esc(v.notes)+'</p>':'')+actions+'</article>';
+          }
+          async function loadAvailableVehicles(){
+            const list=document.getElementById('availableVehicleList');
+            const mine=document.getElementById('myAvailableVehicleList');
+            if(!list||!mine)return;
+            if(!getToken()||!apiReady()){
+              list.innerHTML='<div class="warn">उपलब्ध गाड़ियाँ देखने और पोस्ट करने के लिए पहले लॉगिन करें। <button class="btn outline" onclick="show(\\'account\\')">लॉगिन करें</button></div>';
+              mine.innerHTML='<div class="card empty">लॉगिन करने के बाद आपकी गाड़ी की पोस्ट यहाँ दिखेगी।</div>';
+              return;
+            }
+            list.innerHTML='<div class="card empty">उपलब्ध गाड़ियाँ लोड हो रही हैं…</div>';
+            mine.innerHTML='<div class="card empty">आपकी पोस्ट लोड हो रही हैं…</div>';
+            try{
+              const results=await Promise.all([
+                apiRequest('/api/vehicles/available'),
+                apiRequest('/api/vehicles/available/mine')
+              ]);
+              const vehicles=results[0].vehicles||[];
+              const own=results[1].vehicles||[];
+              list.innerHTML=vehicles.length?vehicles.map(v=>availableVehicleCard(v,false)).join(''):'<div class="card empty">अभी कोई गाड़ी उपलब्ध नहीं है।</div>';
+              mine.innerHTML=own.length?own.map(v=>availableVehicleCard(v,true)).join(''):'<div class="card empty">आपने अभी कोई गाड़ी पोस्ट नहीं की है।</div>';
+            }catch(error){
+              list.innerHTML='<div class="warn">गाड़ियाँ लोड नहीं हुईं: '+esc(error.message)+'</div>';
+              mine.innerHTML='<div class="card empty">आपकी पोस्ट अभी लोड नहीं हो सकीं।</div>';
+            }
+          }
+          async function postAvailableVehicle(){
+            const button=document.getElementById('availableVehiclePostBtn');
+            const message=document.getElementById('availableVehicleMessage');
+            if(!getToken()||!apiReady()){alert('गाड़ी पोस्ट करने के लिए पहले लॉगिन करें।');show('account');return;}
+            const vehicleType=document.getElementById('availableVehicleType').value.trim();
+            const vehicleModel=document.getElementById('availableVehicleModel').value.trim();
+            const registrationNumber=document.getElementById('availableVehicleReg').value.trim();
+            const city=document.getElementById('availableVehicleCity').value.trim();
+            const seats=Number(document.getElementById('availableVehicleSeats').value||4);
+            const from=document.getElementById('availableVehicleFrom').value;
+            const until=document.getElementById('availableVehicleUntil').value;
+            const notes=document.getElementById('availableVehicleNotes').value.trim();
+            if(!vehicleType||!city||!from){alert('गाड़ी का प्रकार, शहर और उपलब्ध होने का समय भरें।');return;}
+            if(!Number.isInteger(seats)||seats<1||seats>50){alert('सीटों की संख्या 1 से 50 के बीच लिखें।');return;}
+            const availableFrom=new Date(from);
+            const availableUntil=until?new Date(until):null;
+            if(Number.isNaN(availableFrom.getTime())||(availableUntil&&Number.isNaN(availableUntil.getTime()))){alert('तारीख और समय सही चुनें।');return;}
+            if(availableUntil&&availableUntil<=availableFrom){alert('उपलब्धता समाप्ति का समय, शुरू होने के समय के बाद होना चाहिए।');return;}
+            const body={vehicleType,vehicleModel,registrationNumber,city,seats,availableFrom:availableFrom.toISOString(),availableUntil:availableUntil?availableUntil.toISOString():null,notes};
+            button.disabled=true;
+            button.textContent='गाड़ी पोस्ट हो रही है…';
+            try{
+              const result=await apiRequest('/api/vehicles/available',{method:'POST',body:JSON.stringify(body)});
+              message.textContent=result.message||'गाड़ी उपलब्ध पोस्ट हो गई।';
+              document.getElementById('availableVehicleModel').value='';
+              document.getElementById('availableVehicleReg').value='';
+              document.getElementById('availableVehicleNotes').value='';
+              await loadAvailableVehicles();
+            }catch(error){
+              message.textContent='गाड़ी पोस्ट नहीं हुई: '+error.message;
+            }finally{
+              button.disabled=false;
+              button.textContent='＋ गाड़ी उपलब्ध पोस्ट करें';
+            }
+          }
+          async function setAvailableVehicleStatus(id,status){
+            try{
+              const result=await apiRequest('/api/vehicles/available/'+encodeURIComponent(id)+'/status',{method:'PATCH',body:JSON.stringify({status})});
+              alert(result.message||'गाड़ी की स्थिति अपडेट हो गई।');
+              await loadAvailableVehicles();
+            }catch(error){alert('स्थिति अपडेट नहीं हुई: '+error.message);}
+          }
+          async function removeAvailableVehicle(id){
+            if(!confirm('क्या आप अपनी गाड़ी की यह पोस्ट हटाना चाहते हैं?'))return;
+            try{
+              const result=await apiRequest('/api/vehicles/available/'+encodeURIComponent(id),{method:'DELETE'});
+              alert(result.message||'पोस्ट हटा दी गई।');
+              await loadAvailableVehicles();
+            }catch(error){alert('पोस्ट नहीं हटाई गई: '+error.message);}
+          }
+          """
+          show_anchor = "function show(page){"
+          if content.count(show_anchor) != 1:
+              raise SystemExit("Page navigation function insertion point missing.")
+          content = content.replace(show_anchor, vehicle_js + "\\n" + show_anchor, 1)
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
           build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 21", build, count=1)
