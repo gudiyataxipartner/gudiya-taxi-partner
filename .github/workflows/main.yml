@@ -401,6 +401,9 @@ jobs:
           if content.count(show_anchor) != 1:
               raise SystemExit("Page navigation function insertion point missing.")
           content = content.replace(show_anchor, vehicle_js + "\\n" + show_anchor, 1)
+          # Persist the final HTML after adding the fifth tab and vehicle page.
+          html.write_text(content, encoding="utf-8")
+
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
           build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 22", build, count=1)
