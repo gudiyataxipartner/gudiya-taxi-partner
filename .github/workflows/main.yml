@@ -417,14 +417,14 @@ jobs:
                   }
               }"""
           new_types = """    buildTypes {
-        getByName("debug") {
-            signingConfig = signingConfigs.getByName("stableRelease")
-        }
-        getByName("release") {
-            signingConfig = signingConfigs.getByName("stableRelease")
-            isMinifyEnabled = false
-        }
-    }"""
+                  getByName("debug") {
+                      signingConfig = signingConfigs.getByName("stableRelease")
+                  }
+                  getByName("release") {
+                      signingConfig = signingConfigs.getByName("stableRelease")
+                      isMinifyEnabled = false
+                  }
+              }"""
           if build.count(old_types) != 1:
               raise SystemExit("Stable User App signing block not found exactly once.")
           build = build.replace(old_types, new_types, 1)
