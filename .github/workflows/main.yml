@@ -411,11 +411,11 @@ jobs:
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           old_types = """    buildTypes {
-        getByName("debug") {
-            // Keep the same stable signing identity for every APK distributed from GitHub.
-            signingConfig = signingConfigs.getByName("stableRelease")
-        }
-    }"""
+                  getByName("debug") {
+                      // Keep the same stable signing identity for every APK distributed from GitHub.
+                      signingConfig = signingConfigs.getByName("stableRelease")
+                  }
+              }"""
           new_types = """    buildTypes {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("stableRelease")
