@@ -1,0 +1,46 @@
+name: Inspect Gudiya User App Source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/inspect-source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract app source and inspect navigation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app-source
+          unzip -oq Gudiya-Taxi-Partner-New-Project.zip -d app-source
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app-source/GudiyaTaxiPartner")
+          print("=== SOURCE FILES ===")
+          for p in sorted((root/"app/src/main").rglob("*")):
+              if p.is_file():
+                  print(p.relative_to(root))
+          html=(root/"app/src/main/assets/index.html").read_text(encoding="utf-8")
+          print("\\n=== NAVIGATION / SCREEN HTML ===")
+          for pattern in (r"<nav[\\s\\S]{0,12000}?</nav>",r"<footer[\\s\\S]{0,12000}?</footer>",r"class=[\\\"'][^\\\"']*(?:bottom|nav)[^\\\"']*[\\\"'][^>]*>[\\s\\S]{0,8000}"):
+              for m in re.finditer(pattern,html,re.I):
+                  print(m.group(0)[:12000])
+          for marker in ("id=\\\"home\\\"","id=\\\"search\\\"","id=\\\"post\\\"","id=\\\"myduties\\\"","function show(","function renderMine","function postDuty","function apiRequest","function switchTab"):
+              i=html.find(marker)
+              if i>=0:
+                  print("\\n=== CONTEXT "+marker+" ===")
+                  print(html[max(0,i-500):min(len(html),i+2200)])
+          print("\\n=== JAVASCRIPT GLOBAL FUNCTIONS ===")
+          for m in re.finditer(r"(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)\\s*\\(",html):
+              print(m.group(1))
+          PY
