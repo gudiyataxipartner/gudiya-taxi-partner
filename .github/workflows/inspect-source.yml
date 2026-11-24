@@ -31,6 +31,16 @@ jobs:
               if p.is_file():
                   print(p.relative_to(root))
           html=(root/"app/src/main/assets/index.html").read_text(encoding="utf-8")
+          for source_name in ("MainActivity.kt","MainActivity.java"):
+              source=(root/"app/src/main/java/com/gudiyataxipartner"/source_name).read_text(encoding="utf-8")
+              print("\\n=== "+source_name+" ===")
+              print(source[:18000])
+          print("\\n=== HTML NAV SELECTOR AND MARKUP ===")
+          for token in (".nav", "data-page", "bottom-nav", "position:fixed", "class=\\\"nav"):
+              indexes=[m.start() for m in re.finditer(re.escape(token),html,re.I)]
+              for pos in indexes[:6]:
+                  print("\\n--- "+token+" ---")
+                  print(html[max(0,pos-400):min(len(html),pos+900)])
           print("\\n=== NAVIGATION / SCREEN HTML ===")
           for token in ("Home", "होम", "ड्यूटी खोजें", "Duty Search", "ड्यूटी पोस्ट", "My Duty", "मेरी ड्यूटी", "Available Vehicles"):
               positions=[m.start() for m in re.finditer(re.escape(token),html,re.I)]
