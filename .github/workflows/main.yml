@@ -406,10 +406,28 @@ jobs:
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 22", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.0"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 23", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.1"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
+          old_types = """    buildTypes {
+        getByName("debug") {
+            // Keep the same stable signing identity for every APK distributed from GitHub.
+            signingConfig = signingConfigs.getByName("stableRelease")
+        }
+    }"""
+          new_types = """    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("stableRelease")
+        }
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("stableRelease")
+            isMinifyEnabled = false
+        }
+    }"""
+          if build.count(old_types) != 1:
+              raise SystemExit("Stable User App signing block not found exactly once.")
+          build = build.replace(old_types, new_types, 1)
           gradle.write_text(build, encoding="utf-8")
           PY
           # Fail the APK build if any inline WebView JavaScript is syntactically invalid.
@@ -452,15 +470,31 @@ jobs:
           test -n "$ANDROID_KEYSTORE_PASSWORD" || (echo "Missing repository secret ANDROID_KEYSTORE_PASSWORD"; exit 1)
           test -n "$ANDROID_KEY_PASSWORD" || (echo "Missing repository secret ANDROID_KEY_PASSWORD"; exit 1)
           test -n "$ANDROID_KEY_ALIAS" || (echo "Missing repository secret ANDROID_KEY_ALIAS"; exit 1)
-          gradle assembleDebug
+          gradle assembleRelease
 
       - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
-          test -s app-source/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk
-          cp app-source/GudiyaTaxiPartner/app/build/outputs/apk/debug/app-debug.apk gudiya-taxi-partner.apk
+          test -s app-source/GudiyaTaxiPartner/app/build/outputs/apk/release/app-release.apk
+          cp app-source/GudiyaTaxiPartner/app/build/outputs/apk/release/app-release.apk gudiya-taxi-partner.apk
           test -s gudiya-taxi-partner.apk
+
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$AAPT" || (echo "Missing aapt"; exit 1)
+          test -n "$APKSIGNER" || (echo "Missing apksigner"; exit 1)
+          BADGING="$("$AAPT" dump badging gudiya-taxi-partner.apk)"
+          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='23' versionName='1.3.1'" >/dev/null || {
+            echo "ERROR: User APK package/version metadata mismatch."
+            echo "$BADGING" | head -5
+            exit 1
+          }
+          if echo "$BADGING" | grep -q "application-debuggable"; then
+            echo "ERROR: Production User APK is still debuggable."
+            exit 1
+          fi
+          "$APKSIGNER" verify gudiya-taxi-partner.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
