@@ -187,8 +187,18 @@ jobs:
             const [mine,accepted]=await Promise.all([apiRequest('/api/duties/mine'),apiRequest('/api/duties/accepted')]);
             const posted=(mine.duties||[]).map(d=>({...d,isOwner:(d.sourceType||d.source_type)!=='whatsapp',detailsAvailable:true,freeWindowSecondsRemaining:null}));
             const taken=(accepted.duties||[]).map(d=>({...d,detailsAvailable:true,acceptedByMe:true}));
-            const all=[...posted,...taken];
-            box.innerHTML=all.length?'<h3>आपकी पोस्ट की गई ड्यूटी</h3>'+ (posted.length?posted.map(d=>apiDutyCard(d)).join(''):'<div class="card empty">अभी आपने कोई ड्यूटी पोस्ट नहीं की।</div>')+'<h3>आपके द्वारा स्वीकार की गई ड्यूटी</h3>'+(taken.length?taken.map(d=>apiDutyCard(d)).join(''):'<div class="card empty">अभी आपने कोई ड्यूटी स्वीकार नहीं की।</div>'):'<div class="card empty">अभी कोई ड्यूटी पोस्ट या स्वीकार नहीं की गई है।</div>';
+            const isBooked=d=>String(d.status||'').trim().toLowerCase()==='booked';
+            const bookedById=new Map();
+            [...posted,...taken].filter(isBooked).forEach(d=>bookedById.set(String(d.id),d));
+            const booked=[...bookedById.values()];
+            const activePosted=posted.filter(d=>!isBooked(d));
+            const activeTaken=taken.filter(d=>!isBooked(d));
+            const hasAny=booked.length||activePosted.length||activeTaken.length;
+            box.innerHTML=hasAny?
+             '<h3>✅ Booked ड्यूटी</h3>'+(booked.length?booked.map(d=>apiDutyCard(d)).join(''):'<div class="card empty">अभी कोई ड्यूटी Booked नहीं हुई है।</div>')+
+             '<h3>आपकी पोस्ट की गई ड्यूटी</h3>'+(activePosted.length?activePosted.map(d=>apiDutyCard(d)).join(''):'<div class="card empty">अभी कोई सक्रिय पोस्ट की गई ड्यूटी नहीं है।</div>')+
+             '<h3>आपके द्वारा स्वीकार की गई ड्यूटी</h3>'+(activeTaken.length?activeTaken.map(d=>apiDutyCard(d)).join(''):'<div class="card empty">अभी कोई सक्रिय स्वीकार की गई ड्यूटी नहीं है।</div>')
+             :'<div class="card empty">अभी कोई ड्यूटी पोस्ट या स्वीकार नहीं की गई है।</div>';
            }catch(e){
             const local=getLocalDuties();
             box.innerHTML=local.length?'<div class="warn">सर्वर उपलब्ध नहीं; फोन में सेव डेमो ड्यूटी दिखाई जा रही हैं।</div>'+local.map(d=>apiDutyCard({...d,detailsAvailable:true})).join(''):'<div class="warn">ड्यूटी लोड नहीं हुई: '+esc(e.message)+'</div>';
@@ -204,6 +214,11 @@ jobs:
           content, mine_count = re.subn(mine_pattern, lambda match: mine_replacement, content, count=1)
           if mine_count != 1:
               raise SystemExit("My Duties function target missing; refusing to build.")
+
+          if "✅ Booked ड्यूटी" not in content or "const bookedById=new Map()" not in content:
+              raise SystemExit("Booked duties grouping was not applied; refusing to build.")
+          if "const activePosted=posted.filter(d=>!isBooked(d));" not in content or "const activeTaken=taken.filter(d=>!isBooked(d));" not in content:
+              raise SystemExit("Active duty grouping validation failed; refusing to build.")
 
           # WhatsApp-imported duties must never expose the group title or raw group message.
           # Reuse the sanitizer already added above by the existing audit patch.
@@ -428,8 +443,8 @@ jobs:
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 24", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.2"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 25", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.3"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           old_types = """    buildTypes {
@@ -507,7 +522,7 @@ jobs:
           test -n "$AAPT" || (echo "Missing aapt"; exit 1)
           test -n "$APKSIGNER" || (echo "Missing apksigner"; exit 1)
           BADGING="$("$AAPT" dump badging gudiya-taxi-partner.apk)"
-          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='24' versionName='1.3.2'" >/dev/null || {
+          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='25' versionName='1.3.3'" >/dev/null || {
             echo "ERROR: User APK package/version metadata mismatch."
             echo "$BADGING" | head -5
             exit 1
