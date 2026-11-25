@@ -65,7 +65,7 @@ jobs:
                   pos=m.start()
                   print("\\n--- FUNCTION ---")
                   print(html[pos:min(len(html),pos+2600)])
-                    print("\\n=== MAIN ACTIVITY NAVIGATION HOOKS ===")
+          print("\\n=== MAIN ACTIVITY NAVIGATION HOOKS ===")
           for source_name in ("MainActivity.kt","MainActivity.java"):
               source=(root/"app/src/main/java/com/gudiyataxipartner"/source_name).read_text(encoding="utf-8")
               for token in ("BottomNavigationView","setContentView","addJavascriptInterface","loadUrl","nav"):
