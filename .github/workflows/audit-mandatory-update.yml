@@ -1,0 +1,33 @@
+name: Audit Mandatory Update Integration Points
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/audit-mandatory-update.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect update integration anchors
+        run: |
+          set -euo pipefail
+          unzip -oq Gudiya-Taxi-Partner-New-Project.zip -d app-source
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app-source/GudiyaTaxiPartner/app/src/main/assets")
+          p=root/"index.html"
+          s=p.read_text(encoding="utf-8")
+          print("=== index end ===")
+          print(s[-9000:])
+          for term in ["DOMContentLoaded","function init","async function init","show('home')","API_BASE","</body>"]:
+              print("\\n=== "+term+" ===")
+              for m in list(re.finditer(re.escape(term),s,re.I))[-3:]:
+                  print("offset",m.start(),s[max(0,m.start()-600):min(len(s),m.start()+1300)])
+          print("\\n=== config.js ===")
+          print((root/"config.js").read_text(encoding="utf-8"))
+          PY
