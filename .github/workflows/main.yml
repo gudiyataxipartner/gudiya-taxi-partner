@@ -85,10 +85,14 @@ jobs:
                   "}catch(serverError){alert((editingDutyId?'ड्यूटी अपडेट नहीं हो सकी: ':'ड्यूटी सर्वर पर पोस्ट नहीं हुई: ')+(serverError.message||'कृपया इंटरनेट/API जाँचकर फिर प्रयास करें।')+' आपके भरे हुए विवरण फॉर्म में सुरक्षित हैं।');return}",
               ),
               (
-                  "async function refreshMembership(){if(!getToken()||!apiReady())return;try{const d=await apiRequest('/api/membership');const box=document.getElementById('paymentMessage');if(box){box.className=d.active?'success':'warn';box.textContent=d.active?('आपकी '+(d.subscription?.amount_rupees||'चुनी गई')+' रुपये की सदस्यता सक्रिय है।'):('सदस्यता सक्रिय नहीं है। स्थिति: '+(d.subscription?.status||'शुरू नहीं हुई')+'.')} }catch(e){}}",
+                  "async function refreshMembership(){if(!getToken()||!apiReady())return;const box=document.getElementById('paymentMessage');try{const d=await apiRequest('/api/membership');if(!box)return;const request=d.paymentRequest||null;window.__gudiyaPaymentPending=request?.status==='pending';document.querySelectorAll('#membership .membership-option button').forEach(button=>{button.disabled=!!window.__gudiyaPaymentPending});if(request?.status==='pending'){document.getElementById('upiPaymentForm')?.classList.add('hidden');box.className='warn';box.textContent=(d.active?'आपकी वर्तमान सदस्यता सक्रिय है। ':'')+'आपका ₹'+request.amount_rupees+' का UPI भुगतान अनुरोध Pending है। Admin बैंक/UPI में UTR सत्यापित करेगा। पुष्टि होने तक दूसरा भुगतान न करें।';return;}if(d.active){box.className='success';box.textContent='आपकी '+(d.subscription?.amount_rupees||'चुनी गई')+' रुपये की सदस्यता सक्रिय है।';return;}if(request?.status==='rejected'){box.className='warn';box.textContent='पिछला UPI भुगतान अनुरोध अस्वीकार हुआ। '+(request.admin_note?'Admin note: '+request.admin_note:'कृपया UTR और भुगतान विवरण जाँचकर दोबारा प्रयास करें।');return;}box.className='warn';box.textContent='सदस्यता सक्रिय नहीं है। BharatPe UPI से प्लान चुनें और भुगतान के बाद UTR जमा करें।';}catch(e){if(box){box.className='warn';box.textContent='सदस्यता स्थिति लोड नहीं हुई: '+e.message}}}",
                   "async function refreshMembership(){if(!getToken()||!apiReady())return;const box=document.getElementById('paymentMessage');try{const d=await apiRequest('/api/membership');if(box){box.className=d.active?'success':'warn';box.textContent=d.active?('आपकी '+(d.subscription?.amount_rupees||'चुनी गई')+' रुपये की सदस्यता सक्रिय है।'):('सदस्यता सक्रिय नहीं है। स्थिति: '+(d.subscription?.status||'शुरू नहीं हुई')+'.')}}catch(e){if(box){box.className='warn';box.textContent='सदस्यता स्थिति लोड नहीं हुई: '+e.message}}}",
               ),
               (r"""${sourceGroup?`<div class="notice">WhatsApp ग्रुप: <b>${esc(sourceGroup)}</b></div>`:''}""", "''"),
+              ("<p style=\"margin:0 0 10px;line-height:1.5\">सदस्यता प्लान उपलब्ध हैं। भुगतान सुविधा पर अभी काम चल रहा है। नया भुगतान विकल्प शुरू होने तक कोई भुगतान नहीं होगा और सदस्यता अपने-आप सक्रिय नहीं होगी।</p>", "<p style=\"margin:0 0 10px;line-height:1.5\">सदस्यता का भुगतान BharatPe UPI से किया जा सकता है। प्लान चुनें, UPI ऐप में भुगतान करें और UTR / Transaction ID जमा करें। बैंक/UPI में रकम की पुष्टि और Admin approval के बाद ही सदस्यता सक्रिय होगी।</p>"),
+              ("<div class=\"notice\" style=\"margin-top:10px\">भुगतान विकल्प जल्द उपलब्ध होगा।</div>", "<div class=\"notice\" style=\"margin-top:10px\">भुगतान जमा होने पर Admin BharatPe/UPI में रकम और UTR की पुष्टि करेगा।</div>"),
+              ("let selectedUpiPlan=1;function startUpiPayment(months=1){if(!getToken())", "let selectedUpiPlan=1;function startUpiPayment(months=1){if(window.__gudiyaPaymentPending){alert('आपका भुगतान पहले से Admin के पास Pending है। कृपया सत्यापन पूरा होने तक दूसरा भुगतान न करें।');return}if(!getToken())"),
+              ("document.getElementById('upiUtr').value='';}catch(e){box.className='warn';box.textContent='जमा नहीं हुआ: '+e.message;", "document.getElementById('upiUtr').value='';await refreshMembership();}catch(e){box.className='warn';box.textContent='जमा नहीं हुआ: '+e.message;"),
           ]
           for old, new in fixes:
               if old not in content:
@@ -696,8 +700,8 @@ jobs:
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 29", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.7"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 30", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.8"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           old_types = """    buildTypes {
@@ -726,7 +730,7 @@ jobs:
           if not config_js.is_file():
               raise SystemExit("Android app config.js missing; refusing to build.")
           config_content = config_js.read_text(encoding="utf-8")
-          app_version_line = "window.GUDIYA_APP_VERSION = '1.3.7';"
+          app_version_line = "window.GUDIYA_APP_VERSION = '1.3.8';"
           if "window.GUDIYA_APP_VERSION" in config_content:
               config_lines = [line for line in config_content.splitlines() if not line.strip().startswith("window.GUDIYA_APP_VERSION")]
               config_content = chr(10).join(config_lines).rstrip() + chr(10) + app_version_line + chr(10)
@@ -744,9 +748,12 @@ jobs:
           PY
           node --check /tmp/gudiya-inline.js
           grep -Fq "gudiyaUpdateGate" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          grep -Fq "BharatPe UPI से भुगतान किया जा सकता है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          if grep -Fq "भुगतान सुविधा पर अभी काम चल रहा है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html; then echo "Stale membership payment text remains"; exit 1; fi
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.8';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
           grep -Fq "display:none" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           grep -Fq "layer.style.display='flex'" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
-          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.7';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.8';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
 
       - name: Prepare stable signing key
         shell: bash
@@ -793,7 +800,7 @@ jobs:
           test -n "$AAPT" || (echo "Missing aapt"; exit 1)
           test -n "$APKSIGNER" || (echo "Missing apksigner"; exit 1)
           BADGING="$("$AAPT" dump badging gudiya-taxi-partner.apk)"
-          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='29' versionName='1.3.7'" >/dev/null || {
+          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='30' versionName='1.3.8'" >/dev/null || {
             echo "ERROR: User APK package/version metadata mismatch."
             echo "$BADGING" | head -5
             exit 1
