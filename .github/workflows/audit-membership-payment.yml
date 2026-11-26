@@ -36,4 +36,8 @@ jobs:
           print(repr(s[p:p+2800]) if p>=0 else "refreshMembership not found")
           print("\\n===== CONFIG =====")
           print((root/"config.js").read_text(encoding="utf-8")[:5000])
+          gradle=Path("app-source/GudiyaTaxiPartner/app/build.gradle.kts")
+          print("\\n===== GRADLE BUILD TYPES =====")
+          g=gradle.read_text(encoding="utf-8")
+          print(g)
           PY
