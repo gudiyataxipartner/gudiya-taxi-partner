@@ -31,6 +31,9 @@ jobs:
                   print("\\n===== TERM",term,"count",len(matches),"=====")
                   for m in matches[:6]:
                       print(s[max(0,m.start()-900):min(len(s),m.start()+1800)])
+          p=s.find("async function refreshMembership")
+          print("\\n===== EXACT REFRESH MEMBERSHIP CONTEXT =====")
+          print(repr(s[p:p+2800]) if p>=0 else "refreshMembership not found")
           print("\\n===== CONFIG =====")
           print((root/"config.js").read_text(encoding="utf-8")[:5000])
           PY
