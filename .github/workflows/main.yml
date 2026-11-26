@@ -785,7 +785,7 @@ jobs:
           PY
           node --check /tmp/gudiya-inline.js
           grep -Fq "gudiyaUpdateGate" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
-          grep -Fq "BharatPe UPI से भुगतान किया जा सकता है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          grep -Fq "सदस्यता का भुगतान BharatPe UPI से किया जा सकता है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           if grep -Fq "भुगतान सुविधा पर अभी काम चल रहा है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html; then echo "Stale membership payment text remains"; exit 1; fi
           grep -Fq "window.GUDIYA_APP_VERSION = '1.3.8';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
           grep -Fq "display:none" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
