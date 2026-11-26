@@ -1,0 +1,30 @@
+name: Audit User Duty Date Time Inputs
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/audit-date-time-format.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect duty posting date and time only
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -oq Gudiya-Taxi-Partner-New-Project.zip -d app-source
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html")
+          s=p.read_text(encoding="utf-8")
+          for term in ['id="dutyDate"','id="dutyTime"','type="date"','type="time"','dutyDate','dutyTime','function resetDutyForm','async function postDuty']:
+              print("\\n===== "+term+" =====")
+              for m in list(re.finditer(re.escape(term),s,re.I))[:8]:
+                  a=max(0,m.start()-500);b=min(len(s),m.start()+1300)
+                  print(s[a:b].replace("\\n","\\n"))
+          PY
