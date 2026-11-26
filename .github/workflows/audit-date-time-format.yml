@@ -22,9 +22,8 @@ jobs:
           import re
           p=Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html")
           s=p.read_text(encoding="utf-8")
-          for term in ['id="dutyDate"','id="dutyTime"','type="date"','type="time"','dutyDate','dutyTime','function resetDutyForm','async function postDuty']:
+          for term in ["async function editDuty", "async function postDuty", "function apiDutyCard(d)", "function dutyMessage(d)", "function resetDutyForm", "dutyDate:date", "dutyTime:time", "editDuty("]:
               print("\\n===== "+term+" =====")
-              for m in list(re.finditer(re.escape(term),s,re.I))[:8]:
-                  a=max(0,m.start()-500);b=min(len(s),m.start()+1300)
-                  print(s[a:b].replace("\\n","\\n"))
-          PY
+              p=s.find(term)
+              if p>=0: print(s[max(0,p-500):min(len(s),p+6000)])
+                    PY
