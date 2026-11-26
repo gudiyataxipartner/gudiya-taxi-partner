@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/audit-user-api-url.yml"
+      - "tools/audit-user-api-url.py"
   workflow_dispatch:
 permissions:
   contents: read
