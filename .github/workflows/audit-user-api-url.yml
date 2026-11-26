@@ -1,0 +1,34 @@
+name: Audit User App API URL
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/audit-user-api-url.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract source and print API configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -oq Gudiya-Taxi-Partner-New-Project.zip -d app-source
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app-source/GudiyaTaxiPartner")
+          for p in root.rglob("*"):
+              if not p.is_file() or p.suffix.lower() not in (".html",".kt",".java",".xml",".json",".properties"):
+                  continue
+              try:s=p.read_text(encoding="utf-8")
+              except:continue
+              hits=[m.start() for m in re.finditer(r"https?://[^\\s'\\"<>]+|onrender\\.com|API[_A-Z]*|apiBase|apiUrl",s,re.I)]
+              if hits:
+                  print("\\nFILE:",p)
+                  for pos in hits[:30]:
+                      print(s[max(0,pos-160):min(len(s),pos+280)].replace("\\n"," ")[:500])
+          PY
