@@ -30,4 +30,7 @@ jobs:
                   print("offset",m.start(),s[max(0,m.start()-600):min(len(s),m.start()+1300)])
           print("\\n=== config.js ===")
           print((root/"config.js").read_text(encoding="utf-8"))
+          print("\\n=== MainActivity.java ===")
+          native=Path("app-source/GudiyaTaxiPartner/app/src/main/java/com/gudiyataxipartner/MainActivity.java")
+          print(native.read_text(encoding="utf-8"))
           PY
