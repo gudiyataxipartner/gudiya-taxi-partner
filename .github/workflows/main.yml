@@ -728,17 +728,10 @@ jobs:
                       isMinifyEnabled = false
                   }
               }"""
-          if 'getByName("release")' not in build:
-              build, build_types_count = re.subn(
-                  r'    buildTypes\\s*\\{\\s*getByName\\("debug"\\)\\s*\\{[\\s\\S]*?\\}\\s*\\}',
-                  new_types,
-                  build,
-                  count=1,
-              )
-              if build_types_count != 1:
-                  raise SystemExit("Stable User App buildTypes block could not be safely updated.")
-          if 'getByName("release")' in build and 'signingConfig = signingConfigs.getByName("stableRelease")' not in build:
-              raise SystemExit("Release signing configuration is not using the stable key.")
+          if build.count(old_types) == 1:
+              build = build.replace(old_types, new_types, 1)
+          elif 'getByName("release")' not in build or 'signingConfig = signingConfigs.getByName("stableRelease")' not in build:
+              raise SystemExit("Stable User App signing block was not in the expected safe configuration.")
           gradle.write_text(build, encoding="utf-8")
 
           # Embed this exact APK version in the WebView config so the app can
