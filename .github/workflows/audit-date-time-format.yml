@@ -12,18 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect duty posting date and time only
-        shell: bash
+      - name: Inspect duty date and time
         run: |
-          set -euo pipefail
           unzip -oq Gudiya-Taxi-Partner-New-Project.zip -d app-source
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          p=Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html")
-          s=p.read_text(encoding="utf-8")
-          for term in ["async function editDuty", "async function postDuty", "function apiDutyCard(d)", "function dutyMessage(d)", "function resetDutyForm", "dutyDate:date", "dutyTime:time", "editDuty("]:
-              print("\\n===== "+term+" =====")
-              p=s.find(term)
-              if p>=0: print(s[max(0,p-500):min(len(s),p+6000)])
-                    PY
+          python3 tools/audit-duty-date-time.py
