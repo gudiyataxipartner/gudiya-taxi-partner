@@ -599,13 +599,101 @@ jobs:
               raise SystemExit("Selectable 12-hour time controls are missing.")
           if "dutyDate:date,dutyTime:time" not in content:
               raise SystemExit("Existing API duty date/time fields were changed unexpectedly.")
+
+          # Mandatory update gate. It is checked on every app start against the
+          # minimum supported version in the latest published GitHub release.
+          update_gate = r"""<style>
+          #gudiyaUpdateGate{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:24px;background:#eef4fa;color:#17324a;font-family:Arial,sans-serif}
+          #gudiyaUpdateGate .gudiya-update-card{width:100%;max-width:460px;background:#fff;border:1px solid #dce6ed;border-radius:24px;padding:28px 22px;box-shadow:0 12px 36px rgba(20,48,70,.12);text-align:center}
+          #gudiyaUpdateGate .gudiya-update-icon{font-size:54px;margin-bottom:10px}
+          #gudiyaUpdateGate h2{font-size:25px;margin:8px 0 12px;color:#17324a}
+          #gudiyaUpdateGate p{font-size:16px;line-height:1.55;color:#526675}
+          #gudiyaUpdateGate .gudiya-update-version{display:inline-block;background:#e8f5f2;color:#087f70;border-radius:12px;padding:9px 14px;font-weight:800;margin:12px 0}
+          #gudiyaUpdateGate .gudiya-update-button{display:block;width:100%;border:0;border-radius:14px;background:#078f7d;color:#fff;text-decoration:none;font-size:18px;font-weight:800;padding:16px 12px;margin-top:16px;box-sizing:border-box}
+          #gudiyaUpdateGate .gudiya-update-note{font-size:13px;color:#71808c;margin-top:14px}
+          </style>
+          <div id="gudiyaUpdateGate" role="dialog" aria-modal="true" aria-labelledby="gudiyaUpdateTitle">
+           <div class="gudiya-update-card">
+            <div class="gudiya-update-icon">🚖</div>
+            <h2 id="gudiyaUpdateTitle">अपडेट जाँची जा रही है</h2>
+            <p id="gudiyaUpdateMessage">आपके Gudiya Taxi Partner ऐप का नवीनतम Version जाँचा जा रहा है।</p>
+            <div id="gudiyaUpdateVersion" class="gudiya-update-version" hidden></div>
+            <a id="gudiyaUpdateButton" class="gudiya-update-button" href="#" hidden>⬇ अभी नया अपडेट डाउनलोड करें</a>
+            <div id="gudiyaUpdateNote" class="gudiya-update-note">अपडेट पूरा होने के बाद ऐप दोबारा खोलें।</div>
+           </div>
+          </div>
+          <script>
+          (function(){
+           const layer=document.getElementById('gudiyaUpdateGate');
+           const message=document.getElementById('gudiyaUpdateMessage');
+           const title=document.getElementById('gudiyaUpdateTitle');
+           const versionBox=document.getElementById('gudiyaUpdateVersion');
+           const button=document.getElementById('gudiyaUpdateButton');
+           const note=document.getElementById('gudiyaUpdateNote');
+           const appVersion=String(window.GUDIYA_APP_VERSION||'').trim();
+           const apiBase=String(window.GUDIYA_API_BASE||'').replace(/\\/$/,'');
+           function versionParts(value){
+            const text=String(value||'').trim();
+            if(!/^\\d+(?:\\.\\d+){1,3}$/.test(text))return null;
+            return text.split('.').map(n=>Number(n));
+           }
+           function compareVersions(a,b){
+            const aa=versionParts(a),bb=versionParts(b);
+            if(!aa||!bb)return null;
+            for(let i=0;i<Math.max(aa.length,bb.length);i++){
+             const x=aa[i]||0,y=bb[i]||0;
+             if(x<y)return -1;
+             if(x>y)return 1;
+            }
+            return 0;
+           }
+           async function check(){
+            if(!appVersion||!/^https:\\/\\//i.test(apiBase)){layer.remove();return;}
+            try{
+             const controller=new AbortController();
+             const timeout=window.setTimeout(()=>controller.abort(),8000);
+             let response;
+             try{
+              response=await fetch(apiBase+'/api/app-version',{method:'GET',cache:'no-store',headers:{Accept:'application/json'},signal:controller.signal});
+             }finally{window.clearTimeout(timeout);}
+             if(!response.ok)throw new Error('Update check unavailable');
+             const info=await response.json();
+             const minimum=String(info.minimumSupportedVersion||'').trim();
+             const comparison=compareVersions(appVersion,minimum);
+             if(comparison===null)throw new Error('Invalid app version metadata');
+             if(comparison>=0){layer.remove();return;}
+             if(!/^https:\\/\\//i.test(String(info.apkUrl||'')))throw new Error('APK download link unavailable');
+             title.textContent='नया अपडेट अनिवार्य है';
+             message.textContent='आपका ऐप Version '+appVersion+' पुराना हो चुका है। आगे काम जारी रखने के लिए नया Version इंस्टॉल करें।';
+             versionBox.textContent='नया Version: '+String(info.latestVersion||minimum);
+             versionBox.hidden=false;
+             button.href=String(info.apkUrl);
+             button.hidden=false;
+             button.addEventListener('click',function(){
+              message.textContent='नया APK डाउनलोड हो रहा है। डाउनलोड पूरा होने पर फ़ाइल खोलकर Update इंस्टॉल करें।';
+             });
+             note.textContent='अपडेट इंस्टॉल होने तक ऐप के बाकी सभी फीचर लॉक रहेंगे। ऐप uninstall न करें।';
+            }catch(error){
+             console.warn('Gudiya app update check skipped:',error);
+             layer.remove();
+            }
+           }
+           check();
+          })();
+          </script>
+          """
+          if "</body>" not in content or content.count("</body>") != 1:
+              raise SystemExit("App body closing tag missing or duplicated; refusing to add update gate.")
+          if "gudiyaUpdateGate" in content:
+              raise SystemExit("Mandatory update gate already exists in source; refusing duplicate insertion.")
+          content = content.replace("</body>", update_gate + "\\n</body>", 1)
           html.write_text(content, encoding="utf-8")
-          print("Duty post now uses calendar date picker and 12-hour hour/minute/AM-PM selectors; API remains unchanged.")
+          print("Mandatory update gate added; temporary version-check failures do not lock the app.")
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 27", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.5"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 28", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.6"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           old_types = """    buildTypes {
@@ -627,6 +715,26 @@ jobs:
               raise SystemExit("Stable User App signing block not found exactly once.")
           build = build.replace(old_types, new_types, 1)
           gradle.write_text(build, encoding="utf-8")
+
+          # Embed this exact APK version in the WebView config so the app can
+          # compare itself with the backend's minimum supported version.
+          config_js = root / "app/src/main/assets/config.js"
+          if not config_js.is_file():
+              raise SystemExit("Android app config.js missing; refusing to build.")
+          config_content = config_js.read_text(encoding="utf-8")
+          app_version_line = "window.GUDIYA_APP_VERSION = '1.3.6';"
+          if "window.GUDIYA_APP_VERSION" in config_content:
+              config_content, version_count = re.subn(
+                  r"window\\.GUDIYA_APP_VERSION\\s*=\\s*['\\"][^'\\"]+['\\"]\\s*;?",
+                  app_version_line,
+                  config_content,
+                  count=1,
+              )
+              if version_count != 1:
+                  raise SystemExit("Could not update embedded app version.")
+          else:
+              config_content = config_content.rstrip() + "\\n" + app_version_line + "\\n"
+          config_js.write_text(config_content, encoding="utf-8")
           PY
           # Fail the APK build if any inline WebView JavaScript is syntactically invalid.
           python3 - <<'PY'
@@ -637,6 +745,8 @@ jobs:
           Path("/tmp/gudiya-inline.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/gudiya-inline.js
+          grep -Fq "gudiyaUpdateGate" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.6';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
 
       - name: Prepare stable signing key
         shell: bash
@@ -683,7 +793,7 @@ jobs:
           test -n "$AAPT" || (echo "Missing aapt"; exit 1)
           test -n "$APKSIGNER" || (echo "Missing apksigner"; exit 1)
           BADGING="$("$AAPT" dump badging gudiya-taxi-partner.apk)"
-          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='27' versionName='1.3.5'" >/dev/null || {
+          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='28' versionName='1.3.6'" >/dev/null || {
             echo "ERROR: User APK package/version metadata mismatch."
             echo "$BADGING" | head -5
             exit 1
@@ -710,6 +820,7 @@ jobs:
           body: |
             Latest Android APK for Gudiya Taxi Partner.
             Version: ${{ env.VERSION_NAME }}
+            Minimum supported version: ${{ env.VERSION_NAME }}
             Download gudiya-taxi-partner.apk to install or update the app.
           target_commitish: main
           files: gudiya-taxi-partner.apk
