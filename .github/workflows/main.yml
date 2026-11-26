@@ -441,12 +441,23 @@ jobs:
           # Persist the final HTML after adding the fifth tab and vehicle page.
           html.write_text(content, encoding="utf-8")
 
-          # Duty-post date/time only: fixed Indian-style display with no timezone label.
-          # Keep the API contract unchanged: date remains YYYY-MM-DD and time remains HH:mm:ss.
-          date_input_old = '<input id="date" type="date" required>'
-          date_input_new = '<input id="date" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" required>'
-          time_input_old = '<input id="time" type="time" required>'
-          time_input_new = '<input id="time" type="text" inputmode="text" maxlength="11" placeholder="hh:mm:ss AM/PM" autocomplete="off" required>'
+          # Duty-post date/time only: native calendar + fixed 12-hour time picker.
+          # The API continues to receive YYYY-MM-DD and HH:mm:ss (seconds default to 00).
+          date_input_old = '<input id="date" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" required>'
+          date_input_new = '<input id="date" type="date" required>'
+          time_input_old = '<input id="time" type="text" inputmode="text" maxlength="11" placeholder="hh:mm:ss AM/PM" autocomplete="off" required>'
+          hour_options = ''.join(f'<option value="{i:02d}">{i:02d}</option>' for i in range(1,13))
+          minute_options = ''.join(f'<option value="{i:02d}">{i:02d}</option>' for i in range(60))
+          time_input_new = (
+              '<input id="time" type="hidden" value="">'
+              '<div class="row duty-time-picker" style="gap:8px">'
+              '<div class="field" style="flex:1"><select id="timeHour" aria-label="Hour" onchange="updateDutyTimeValue()"><option value="">HH</option>'
+              + hour_options + '</select></div>'
+              '<div class="field" style="flex:1"><select id="timeMinute" aria-label="Minute" onchange="updateDutyTimeValue()"><option value="">MM</option>'
+              + minute_options + '</select></div>'
+              '<div class="field" style="flex:1"><select id="timeAmPm" aria-label="AM or PM" onchange="updateDutyTimeValue()"><option value="">AM/PM</option><option value="AM">AM</option><option value="PM">PM</option></select></div>'
+              '</div>'
+          )
           for old, new, label in (
               (date_input_old, date_input_new, "duty date input"),
               (time_input_old, time_input_new, "duty time input"),
@@ -455,32 +466,62 @@ jobs:
                   raise SystemExit("Expected exactly one " + label + "; refusing to build.")
               content = content.replace(old, new, 1)
 
-          date_label_old = '<label>📅 ड्यूटी की तारीख</label>'
+          date_label_old = '<label>📅 ड्यूटी की तारीख (dd/mm/yyyy)</label>'
           date_label_new = '<label>📅 ड्यूटी की तारीख (dd/mm/yyyy)</label>'
-          time_label_old = '<label>🕒 ड्यूटी का समय</label>'
-          time_label_new = '<label>🕒 ड्यूटी का समय (hh:mm:ss AM/PM)</label>'
-          for old, new, label in (
-              (date_label_old, date_label_new, "duty date label"),
-              (time_label_old, time_label_new, "duty time label"),
-          ):
-              if content.count(old) != 1:
-                  raise SystemExit("Expected exactly one " + label + "; refusing to build.")
-              content = content.replace(old, new, 1)
+          time_label_old = '<label>🕒 ड्यूटी का समय (hh:mm:ss AM/PM)</label>'
+          time_label_new = '<label>🕒 ड्यूटी का समय (hh:mm AM/PM)</label>'
+          if content.count(date_label_old) != 1 or content.count(time_label_old) != 1:
+              raise SystemExit("Duty date/time labels are not in the expected state; refusing to build.")
+          content = content.replace(date_label_old, date_label_new, 1)
+          content = content.replace(time_label_old, time_label_new, 1)
 
           date_time_helpers = r"""function parseDutyDateInput(value){
-           const m=String(value||'').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+           const raw=String(value||'').trim();
+           let m=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+           if(m){
+            const y=Number(m[1]),mo=Number(m[2]),d=Number(m[3]),check=new Date(Date.UTC(y,mo-1,d));
+            return check.getUTCFullYear()===y&&check.getUTCMonth()===mo-1&&check.getUTCDate()===d?raw:'';
+           }
+           m=raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
            if(!m)return '';
-           const day=Number(m[1]),month=Number(m[2]),year=Number(m[3]);
-           const check=new Date(Date.UTC(year,month-1,day));
+           const day=Number(m[1]),month=Number(m[2]),year=Number(m[3]),check=new Date(Date.UTC(year,month-1,day));
            if(check.getUTCFullYear()!==year||check.getUTCMonth()!==month-1||check.getUTCDate()!==day)return '';
            return String(year).padStart(4,'0')+'-'+m[2]+'-'+m[1];
           }
+          function updateDutyTimeValue(){
+           const h=document.getElementById('timeHour')?.value||'';
+           const m=document.getElementById('timeMinute')?.value||'';
+           const ap=document.getElementById('timeAmPm')?.value||'';
+           const field=document.getElementById('time');
+           if(!field)return '';
+           field.value=h&&m&&ap?(h+':'+m+' '+ap):'';
+           return field.value;
+          }
           function parseDutyTimeInput(value){
-           const m=String(value||'').trim().match(/^(0?[1-9]|1[0-2]):([0-5]\d):([0-5]\d)\s*(AM|PM)$/i);
+           const m=String(value||'').trim().match(/^(0?[1-9]|1[0-2]):([0-5]\d)\s*(AM|PM)$/i);
            if(!m)return '';
            let hour=Number(m[1])%12;
-           if(m[4].toUpperCase()==='PM')hour+=12;
-           return String(hour).padStart(2,'0')+':'+m[2]+':'+m[3];
+           if(m[3].toUpperCase()==='PM')hour+=12;
+           return String(hour).padStart(2,'0')+':'+m[2]+':00';
+          }
+          function setDutyTimePicker(value){
+           const raw=String(value||'').trim();
+           let m=raw.match(/^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?\s*(AM|PM)?$/i);
+           if(!m)return;
+           let hour=Number(m[1]);
+           const suffix=(m[3]||'').toUpperCase();
+           if(suffix){
+            if(hour<1||hour>12)return;
+            if(suffix==='PM'&&hour<12)hour+=12;
+            if(suffix==='AM'&&hour===12)hour=0;
+           }else if(hour<0||hour>23)return;
+           const ap=hour>=12?'PM':'AM';
+           hour=hour%12;if(hour===0)hour=12;
+           const h=document.getElementById('timeHour'),min=document.getElementById('timeMinute'),ampm=document.getElementById('timeAmPm');
+           if(h)h.value=String(hour).padStart(2,'0');
+           if(min)min.value=m[2];
+           if(ampm)ampm.value=ap;
+           updateDutyTimeValue();
           }
           function formatDutyDate(value){
            const raw=String(value||'').trim();
@@ -502,29 +543,35 @@ jobs:
             if(suffix==='AM'&&hour===12)hour=0;
            }else if(hour<0||hour>23)return raw;
            const ampm=hour>=12?'PM':'AM';
-           hour=hour%12;
-           if(hour===0)hour=12;
-           return String(hour).padStart(2,'0')+':'+m[2]+':'+(m[3]||'00')+' '+ampm;
+           hour=hour%12;if(hour===0)hour=12;
+           return String(hour).padStart(2,'0')+':'+m[2]+' '+ampm;
           }
           """
           card_anchor = "function apiDutyCard(d){"
           if content.count(card_anchor) != 1:
               raise SystemExit("Duty card function insertion point missing; refusing to build.")
-          if "function parseDutyDateInput(value)" in content or "function parseDutyTimeInput(value)" in content:
-              raise SystemExit("Duty date/time helpers already exist; refusing duplicate insertion.")
-          content = content.replace(card_anchor, date_time_helpers + "\n" + card_anchor, 1)
+          if "function parseDutyDateInput(value)" in content:
+              content = re.sub(r"function parseDutyDateInput\(value\)\{[\s\S]*?\n          \"\"\"", date_time_helpers + "\n          \"\"\"", content, count=1)
+          else:
+              raise SystemExit("Existing duty date/time helpers were not found; refusing to build.")
 
-          old_post_inputs = "const date=document.getElementById('date').value,time=document.getElementById('time')?.value||'';if(!date||!time){alert('कृपया ड्यूटी की तारीख और समय दोनों चुनें।');return}"
-          new_post_inputs = "const dateInput=document.getElementById('date').value,timeInput=document.getElementById('time')?.value||'',date=parseDutyDateInput(dateInput),time=parseDutyTimeInput(timeInput);if(!date||!time){alert('तारीख dd/mm/yyyy और समय hh:mm:ss AM/PM के सही format में भरें।');return}"
+          old_post_inputs = "const dateInput=document.getElementById('date').value,timeInput=document.getElementById('time')?.value||'',date=parseDutyDateInput(dateInput),time=parseDutyTimeInput(timeInput);if(!date||!time){alert('तारीख dd/mm/yyyy और समय hh:mm:ss AM/PM के सही format में भरें।');return}"
+          new_post_inputs = "const dateInput=document.getElementById('date').value,timeInput=updateDutyTimeValue(),date=parseDutyDateInput(dateInput),time=parseDutyTimeInput(timeInput);if(!date||!time){alert('कृपया कैलेंडर से ड्यूटी की तारीख चुनें और समय में HH, MM तथा AM/PM चुनें।');return}"
           if content.count(old_post_inputs) != 1:
-              raise SystemExit("Duty post date/time parsing target missing; refusing to build.")
+              raise SystemExit("Duty post date/time parser target missing; refusing to build.")
           content = content.replace(old_post_inputs, new_post_inputs, 1)
 
-          old_edit_values = "document.getElementById('date').value=String(duty.dutyDate||duty.duty_date||'').slice(0,10);document.getElementById('time').value=String(duty.dutyTime||duty.duty_time||'').slice(0,5);"
-          new_edit_values = "document.getElementById('date').value=formatDutyDate(duty.dutyDate||duty.duty_date||'').replace('तारीख तय नहीं','');document.getElementById('time').value=formatDutyTime(duty.dutyTime||duty.duty_time||'').replace('समय तय नहीं','');"
+          old_edit_values = "document.getElementById('date').value=formatDutyDate(duty.dutyDate||duty.duty_date||'').replace('तारीख तय नहीं','');document.getElementById('time').value=formatDutyTime(duty.dutyTime||duty.duty_time||'').replace('समय तय नहीं','');"
+          new_edit_values = "document.getElementById('date').value=String(duty.dutyDate||duty.duty_date||'').slice(0,10);setDutyTimePicker(duty.dutyTime||duty.duty_time||'');"
           if content.count(old_edit_values) != 1:
               raise SystemExit("Duty edit date/time display target missing; refusing to build.")
           content = content.replace(old_edit_values, new_edit_values, 1)
+
+          old_reset = "['from','to','date','time','payout','notes'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''})"
+          new_reset = "['from','to','date','time','payout','notes','timeHour','timeMinute','timeAmPm'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''})"
+          if content.count(old_reset) != 1:
+              raise SystemExit("Duty form reset target missing; refusing to build.")
+          content = content.replace(old_reset, new_reset, 1)
 
           old_card_date = "$" + "{esc(d.dutyDate||d.duty_date||'तारीख तय नहीं')}"
           new_card_date = "$" + "{esc(formatDutyDate(d.dutyDate||d.duty_date||''))}"
@@ -544,18 +591,19 @@ jobs:
               raise SystemExit("Duty WhatsApp share date/time display target missing; refusing to build.")
           content = content.replace(old_share_date_time, new_share_date_time, 1)
 
-          # Ensure the display uses the requested formats while the API payload remains server-compatible.
-          if 'type="date" required' in content or 'id="time" type="time"' in content:
-              raise SystemExit("Native duty date/time control remained after patch.")
+          if 'id="date" type="date" required' not in content or 'id="time" type="hidden"' not in content:
+              raise SystemExit("Native calendar or hidden API time field is missing.")
+          if 'id="timeHour"' not in content or 'id="timeMinute"' not in content or 'id="timeAmPm"' not in content:
+              raise SystemExit("Selectable 12-hour time controls are missing.")
           if "dutyDate:date,dutyTime:time" not in content:
               raise SystemExit("Existing API duty date/time fields were changed unexpectedly.")
           html.write_text(content, encoding="utf-8")
-          print("Duty-post date/time fields now use dd/mm/yyyy and hh:mm:ss AM/PM; API values remain YYYY-MM-DD and HH:mm:ss.")
+          print("Duty post now uses calendar date picker and 12-hour hour/minute/AM-PM selectors; API remains unchanged.")
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 26", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.4"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 27", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.5"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           old_types = """    buildTypes {
@@ -633,7 +681,7 @@ jobs:
           test -n "$AAPT" || (echo "Missing aapt"; exit 1)
           test -n "$APKSIGNER" || (echo "Missing apksigner"; exit 1)
           BADGING="$("$AAPT" dump badging gudiya-taxi-partner.apk)"
-          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='26' versionName='1.3.4'" >/dev/null || {
+          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='27' versionName='1.3.5'" >/dev/null || {
             echo "ERROR: User APK package/version metadata mismatch."
             echo "$BADGING" | head -5
             exit 1
