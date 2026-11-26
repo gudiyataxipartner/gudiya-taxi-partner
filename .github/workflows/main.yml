@@ -550,10 +550,49 @@ jobs:
           card_anchor = "function apiDutyCard(d){"
           if content.count(card_anchor) != 1:
               raise SystemExit("Duty card function insertion point missing; refusing to build.")
-          if "function parseDutyDateInput(value)" in content:
-              content = re.sub(r"function parseDutyDateInput\(value\)\{[\s\S]*?\n          \"\"\"", date_time_helpers + "\n          \"\"\"", content, count=1)
-          else:
-              raise SystemExit("Existing duty date/time helpers were not found; refusing to build.")
+          existing_date_time_helpers = r"""function parseDutyDateInput(value){
+           const m=String(value||'').trim().match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/);
+           if(!m)return '';
+           const day=Number(m[1]),month=Number(m[2]),year=Number(m[3]);
+           const check=new Date(Date.UTC(year,month-1,day));
+           if(check.getUTCFullYear()!==year||check.getUTCMonth()!==month-1||check.getUTCDate()!==day)return '';
+           return String(year).padStart(4,'0')+'-'+m[2]+'-'+m[1];
+          }
+          function parseDutyTimeInput(value){
+           const m=String(value||'').trim().match(/^(0?[1-9]|1[0-2]):([0-5]\\d):([0-5]\\d)\\s*(AM|PM)$/i);
+           if(!m)return '';
+           let hour=Number(m[1])%12;
+           if(m[4].toUpperCase()==='PM')hour+=12;
+           return String(hour).padStart(2,'0')+':'+m[2]+':'+m[3];
+          }
+          function formatDutyDate(value){
+           const raw=String(value||'').trim();
+           const iso=raw.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+           if(iso)return iso[3]+'/'+iso[2]+'/'+iso[1];
+           const local=raw.match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/);
+           if(local)return local[1]+'/'+local[2]+'/'+local[3];
+           return raw||'तारीख तय नहीं';
+          }
+          function formatDutyTime(value){
+           const raw=String(value||'').trim();
+           const m=raw.match(/(\\d{1,2}):([0-5]\\d)(?::([0-5]\\d))?\\s*(AM|PM)?/i);
+           if(!m)return raw||'समय तय नहीं';
+           let hour=Number(m[1]);
+           const suffix=(m[4]||'').toUpperCase();
+           if(suffix){
+            if(hour<1||hour>12)return raw;
+            if(suffix==='PM'&&hour<12)hour+=12;
+            if(suffix==='AM'&&hour===12)hour=0;
+           }else if(hour<0||hour>23)return raw;
+           const ampm=hour>=12?'PM':'AM';
+           hour=hour%12;
+           if(hour===0)hour=12;
+           return String(hour).padStart(2,'0')+':'+m[2]+':'+(m[3]||'00')+' '+ampm;
+          }
+          """
+          if content.count(existing_date_time_helpers) != 1:
+              raise SystemExit("Existing duty date/time helper block not found exactly once; refusing to build.")
+          content = content.replace(existing_date_time_helpers, date_time_helpers, 1)
 
           old_post_inputs = "const dateInput=document.getElementById('date').value,timeInput=document.getElementById('time')?.value||'',date=parseDutyDateInput(dateInput),time=parseDutyTimeInput(timeInput);if(!date||!time){alert('तारीख dd/mm/yyyy और समय hh:mm:ss AM/PM के सही format में भरें।');return}"
           new_post_inputs = "const dateInput=document.getElementById('date').value,timeInput=updateDutyTimeValue(),date=parseDutyDateInput(dateInput),time=parseDutyTimeInput(timeInput);if(!date||!time){alert('कृपया कैलेंडर से ड्यूटी की तारीख चुनें और समय में HH, MM तथा AM/PM चुनें।');return}"
