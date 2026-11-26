@@ -728,10 +728,37 @@ jobs:
                       isMinifyEnabled = false
                   }
               }"""
-          if build.count(old_types) == 1:
-              build = build.replace(old_types, new_types, 1)
-          elif 'getByName("release")' not in build or 'signingConfig = signingConfigs.getByName("stableRelease")' not in build:
-              raise SystemExit("Stable User App signing block was not in the expected safe configuration.")
+          if 'getByName("release")' not in build:
+              block_start = build.find("buildTypes")
+              brace_start = build.find("{", block_start)
+              if block_start < 0 or brace_start < 0:
+                  raise SystemExit("Gradle buildTypes block was not found.")
+              depth = 0
+              block_end = -1
+              for index in range(brace_start, len(build)):
+                  if build[index] == "{":
+                      depth += 1
+                  elif build[index] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          block_end = index
+                          break
+              if block_end < 0:
+                  raise SystemExit("Gradle buildTypes closing brace was not found.")
+              release_config = '''
+                  getByName("release") {
+                      signingConfig = signingConfigs.getByName("stableRelease")
+                      isMinifyEnabled = false
+                  }
+              '''
+              build = build[:block_end] + release_config + build[block_end:]
+          release_block_start = build.find('getByName("release")')
+          if release_block_start < 0:
+              raise SystemExit("Release signing block was not added.")
+          release_block_end = build.find("}", release_block_start)
+          release_block = build[release_block_start:release_block_end + 1]
+          if 'signingConfigs.getByName("stableRelease")' not in release_block or "isMinifyEnabled = false" not in release_block:
+              raise SystemExit("Release build must use the stable signing key and disable minification.")
           gradle.write_text(build, encoding="utf-8")
 
           # Embed this exact APK version in the WebView config so the app can
