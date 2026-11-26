@@ -442,10 +442,10 @@ jobs:
           html.write_text(content, encoding="utf-8")
 
           # Duty-post date/time only: native calendar + fixed 12-hour time picker.
-          # The API continues to receive YYYY-MM-DD and HH:mm:ss (seconds default to 00).
-          date_input_old = '<input id="date" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" required>'
-          date_input_new = '<input id="date" type="date" required>'
-          time_input_old = '<input id="time" type="text" inputmode="text" maxlength="11" placeholder="hh:mm:ss AM/PM" autocomplete="off" required>'
+          # Preserve API fields: date YYYY-MM-DD and time HH:mm:ss (seconds are set to 00).
+          date_input_old = '<input id="date" type="date" required>'
+          date_input_new = date_input_old
+          time_input_old = '<input id="time" type="time" required>'
           hour_options = ''.join(f'<option value="{i:02d}">{i:02d}</option>' for i in range(1,13))
           minute_options = ''.join(f'<option value="{i:02d}">{i:02d}</option>' for i in range(60))
           time_input_new = (
@@ -463,17 +463,20 @@ jobs:
               (time_input_old, time_input_new, "duty time input"),
           ):
               if content.count(old) != 1:
-                  raise SystemExit("Expected exactly one " + label + "; refusing to build.")
+                  raise SystemExit("Expected exactly one " + label + " in original source; refusing to build.")
               content = content.replace(old, new, 1)
 
-          date_label_old = '<label>📅 ड्यूटी की तारीख (dd/mm/yyyy)</label>'
+          date_label_old = '<label>📅 ड्यूटी की तारीख</label>'
           date_label_new = '<label>📅 ड्यूटी की तारीख (dd/mm/yyyy)</label>'
-          time_label_old = '<label>🕒 ड्यूटी का समय (hh:mm:ss AM/PM)</label>'
+          time_label_old = '<label>🕒 ड्यूटी का समय</label>'
           time_label_new = '<label>🕒 ड्यूटी का समय (hh:mm AM/PM)</label>'
-          if content.count(date_label_old) != 1 or content.count(time_label_old) != 1:
-              raise SystemExit("Duty date/time labels are not in the expected state; refusing to build.")
-          content = content.replace(date_label_old, date_label_new, 1)
-          content = content.replace(time_label_old, time_label_new, 1)
+          for old, new, label in (
+              (date_label_old, date_label_new, "duty date label"),
+              (time_label_old, time_label_new, "duty time label"),
+          ):
+              if content.count(old) != 1:
+                  raise SystemExit("Expected exactly one " + label + " in original source; refusing to build.")
+              content = content.replace(old, new, 1)
 
           date_time_helpers = r"""function parseDutyDateInput(value){
            const raw=String(value||'').trim();
@@ -506,7 +509,7 @@ jobs:
           }
           function setDutyTimePicker(value){
            const raw=String(value||'').trim();
-           let m=raw.match(/^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?\s*(AM|PM)?$/i);
+           const m=raw.match(/^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?\s*(AM|PM)?$/i);
            if(!m)return;
            let hour=Number(m[1]);
            const suffix=(m[3]||'').toUpperCase();
@@ -550,60 +553,20 @@ jobs:
           card_anchor = "function apiDutyCard(d){"
           if content.count(card_anchor) != 1:
               raise SystemExit("Duty card function insertion point missing; refusing to build.")
-          existing_date_time_helpers = r"""function parseDutyDateInput(value){
-           const m=String(value||'').trim().match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/);
-           if(!m)return '';
-           const day=Number(m[1]),month=Number(m[2]),year=Number(m[3]);
-           const check=new Date(Date.UTC(year,month-1,day));
-           if(check.getUTCFullYear()!==year||check.getUTCMonth()!==month-1||check.getUTCDate()!==day)return '';
-           return String(year).padStart(4,'0')+'-'+m[2]+'-'+m[1];
-          }
-          function parseDutyTimeInput(value){
-           const m=String(value||'').trim().match(/^(0?[1-9]|1[0-2]):([0-5]\\d):([0-5]\\d)\\s*(AM|PM)$/i);
-           if(!m)return '';
-           let hour=Number(m[1])%12;
-           if(m[4].toUpperCase()==='PM')hour+=12;
-           return String(hour).padStart(2,'0')+':'+m[2]+':'+m[3];
-          }
-          function formatDutyDate(value){
-           const raw=String(value||'').trim();
-           const iso=raw.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
-           if(iso)return iso[3]+'/'+iso[2]+'/'+iso[1];
-           const local=raw.match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/);
-           if(local)return local[1]+'/'+local[2]+'/'+local[3];
-           return raw||'तारीख तय नहीं';
-          }
-          function formatDutyTime(value){
-           const raw=String(value||'').trim();
-           const m=raw.match(/(\\d{1,2}):([0-5]\\d)(?::([0-5]\\d))?\\s*(AM|PM)?/i);
-           if(!m)return raw||'समय तय नहीं';
-           let hour=Number(m[1]);
-           const suffix=(m[4]||'').toUpperCase();
-           if(suffix){
-            if(hour<1||hour>12)return raw;
-            if(suffix==='PM'&&hour<12)hour+=12;
-            if(suffix==='AM'&&hour===12)hour=0;
-           }else if(hour<0||hour>23)return raw;
-           const ampm=hour>=12?'PM':'AM';
-           hour=hour%12;
-           if(hour===0)hour=12;
-           return String(hour).padStart(2,'0')+':'+m[2]+':'+(m[3]||'00')+' '+ampm;
-          }
-          """
-          if content.count(existing_date_time_helpers) != 1:
-              raise SystemExit("Existing duty date/time helper block not found exactly once; refusing to build.")
-          content = content.replace(existing_date_time_helpers, date_time_helpers, 1)
+          if "function parseDutyDateInput(value)" in content:
+              raise SystemExit("Duty date/time helpers unexpectedly exist in the original source ZIP.")
+          content = content.replace(card_anchor, date_time_helpers + "\n" + card_anchor, 1)
 
-          old_post_inputs = "const dateInput=document.getElementById('date').value,timeInput=document.getElementById('time')?.value||'',date=parseDutyDateInput(dateInput),time=parseDutyTimeInput(timeInput);if(!date||!time){alert('तारीख dd/mm/yyyy और समय hh:mm:ss AM/PM के सही format में भरें।');return}"
+          old_post_inputs = "const date=document.getElementById('date').value,time=document.getElementById('time')?.value||'';if(!date||!time){alert('कृपया ड्यूटी की तारीख और समय दोनों चुनें।');return}"
           new_post_inputs = "const dateInput=document.getElementById('date').value,timeInput=updateDutyTimeValue(),date=parseDutyDateInput(dateInput),time=parseDutyTimeInput(timeInput);if(!date||!time){alert('कृपया कैलेंडर से ड्यूटी की तारीख चुनें और समय में HH, MM तथा AM/PM चुनें।');return}"
           if content.count(old_post_inputs) != 1:
-              raise SystemExit("Duty post date/time parser target missing; refusing to build.")
+              raise SystemExit("Duty post date/time validation target missing; refusing to build.")
           content = content.replace(old_post_inputs, new_post_inputs, 1)
 
-          old_edit_values = "document.getElementById('date').value=formatDutyDate(duty.dutyDate||duty.duty_date||'').replace('तारीख तय नहीं','');document.getElementById('time').value=formatDutyTime(duty.dutyTime||duty.duty_time||'').replace('समय तय नहीं','');"
+          old_edit_values = "document.getElementById('date').value=String(duty.dutyDate||duty.duty_date||'').slice(0,10);document.getElementById('time').value=String(duty.dutyTime||duty.duty_time||'').slice(0,5);"
           new_edit_values = "document.getElementById('date').value=String(duty.dutyDate||duty.duty_date||'').slice(0,10);setDutyTimePicker(duty.dutyTime||duty.duty_time||'');"
           if content.count(old_edit_values) != 1:
-              raise SystemExit("Duty edit date/time display target missing; refusing to build.")
+              raise SystemExit("Duty edit date/time target missing; refusing to build.")
           content = content.replace(old_edit_values, new_edit_values, 1)
 
           old_reset = "['from','to','date','time','payout','notes'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''})"
@@ -627,7 +590,7 @@ jobs:
           old_share_date_time = "date=d.dutyDate||d.duty_date||'तारीख तय नहीं',time=d.dutyTime||d.duty_time||d.time||'समय तय नहीं'"
           new_share_date_time = "date=formatDutyDate(d.dutyDate||d.duty_date||''),time=formatDutyTime(d.dutyTime||d.duty_time||d.time||'')"
           if content.count(old_share_date_time) != 1:
-              raise SystemExit("Duty WhatsApp share date/time display target missing; refusing to build.")
+              raise SystemExit("Duty WhatsApp share date/time target missing; refusing to build.")
           content = content.replace(old_share_date_time, new_share_date_time, 1)
 
           if 'id="date" type="date" required' not in content or 'id="time" type="hidden"' not in content:
