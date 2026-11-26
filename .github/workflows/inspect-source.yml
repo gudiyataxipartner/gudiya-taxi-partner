@@ -60,3 +60,46 @@ jobs:
                   if pos>=0:
                       print(source[max(0,pos-250):min(len(source),pos+600)])
           PY
+
+      - name: Inspect push notification wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app-source/GudiyaTaxiPartner")
+          main=root/"app/src/main/java/com/gudiyataxipartner"
+          for rel in [
+            "app/src/main/AndroidManifest.xml",
+            "app/build.gradle.kts",
+            "build.gradle.kts",
+            "settings.gradle.kts",
+            "app/src/main/java/com/gudiyataxipartner/GudiyaMessagingService.java"
+          ]:
+            p=root/rel
+            print("\\n===== "+rel+" exists="+str(p.exists())+" =====")
+            if p.exists():
+              value=p.read_text(encoding="utf-8")
+              if rel.endswith("build.gradle.kts"):
+                for line in value.splitlines():
+                  if any(x in line.lower() for x in ("firebase","messaging","google","plugin","implementation","version")):
+                    print(line)
+              else:
+                print(value[:12000])
+          html=(root/"app/src/main/assets/index.html").read_text(encoding="utf-8")
+          print("\\n===== HTML PUSH HOOK OCCURRENCES =====")
+          for token in ("requestPushRegistration","onNativeFcmToken","registerForPush","push/status","push/register-token","setItem('gudiya_auth_token'","gudiya_auth_token","auth/login","auth/register","loginUser","async function login"):
+            matches=[m.start() for m in re.finditer(re.escape(token),html,re.I)]
+            print(token, "count=",len(matches))
+            for pos in matches[:6]:
+              print(html[max(0,pos-500):min(len(html),pos+1000)])
+          print("\\n===== FIREBASE CONFIG FILES (names only) =====")
+          for p in root.rglob("*"):
+            if p.is_file() and ("google-services" in p.name.lower() or "firebase" in p.name.lower()):
+              print(p.relative_to(root))
+              if p.name=="google-services.json":
+                import json
+                d=json.loads(p.read_text(encoding="utf-8"))
+                print("project_id=",d.get("project_info",{}).get("project_id"))
+          PY
