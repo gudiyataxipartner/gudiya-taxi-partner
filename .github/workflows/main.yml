@@ -450,7 +450,7 @@ jobs:
           minute_options = ''.join(f'<option value="{i:02d}">{i:02d}</option>' for i in range(60))
           time_input_new = (
               '<input id="time" type="hidden" value="">'
-              '<div class="row duty-time-picker" style="gap:8px">'
+              '<div class="row duty-time-picker" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">'
               '<div class="field" style="flex:1"><select id="timeHour" aria-label="Hour" onchange="updateDutyTimeValue()"><option value="">HH</option>'
               + hour_options + '</select></div>'
               '<div class="field" style="flex:1"><select id="timeMinute" aria-label="Minute" onchange="updateDutyTimeValue()"><option value="">MM</option>'
