@@ -709,8 +709,8 @@ jobs:
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 30", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.8"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 31", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.9"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           old_types = """    buildTypes {
@@ -767,7 +767,7 @@ jobs:
           if not config_js.is_file():
               raise SystemExit("Android app config.js missing; refusing to build.")
           config_content = config_js.read_text(encoding="utf-8")
-          app_version_line = "window.GUDIYA_APP_VERSION = '1.3.8';"
+          app_version_line = "window.GUDIYA_APP_VERSION = '1.3.9';"
           if "window.GUDIYA_APP_VERSION" in config_content:
               config_lines = [line for line in config_content.splitlines() if not line.strip().startswith("window.GUDIYA_APP_VERSION")]
               config_content = chr(10).join(config_lines).rstrip() + chr(10) + app_version_line + chr(10)
@@ -787,10 +787,74 @@ jobs:
           grep -Fq "gudiyaUpdateGate" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           grep -Fq "सदस्यता का भुगतान BharatPe UPI से किया जा सकता है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           if grep -Fq "भुगतान सुविधा पर अभी काम चल रहा है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html; then echo "Stale membership payment text remains"; exit 1; fi
-          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.8';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.9';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
           grep -Fq "display:none" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           grep -Fq "layer.style.display='flex'" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
-          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.8';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.9';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
+
+
+      - name: Register FCM token whenever the User App opens or returns to foreground
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path("app-source/GudiyaTaxiPartner")
+          html_path = root / "app/src/main/assets/index.html"
+          html = html_path.read_text(encoding="utf-8")
+          marker = """function requestPushRegistration() {
+            try {
+              if (window.GudiyaNative && typeof window.GudiyaNative.registerForPush === 'function' && getToken()) {
+                window.GudiyaNative.registerForPush();
+              }
+            } catch (e) {}
+          }"""
+          if html.count(marker) != 1:
+              raise SystemExit("FCM registration function changed or is missing; refusing unsafe patch.")
+          if "gudiyaPushForegroundRegistration" in html:
+              raise SystemExit("Foreground FCM registration patch already exists in source.")
+          addition = marker + """
+          // Re-register the current FCM token after startup, app resume or WebView focus.
+          // The native bridge checks the saved login token, so logged-out users are unaffected.
+          window.gudiyaPushForegroundRegistration = true;
+          window.addEventListener('focus', requestPushRegistration);
+          window.addEventListener('pageshow', requestPushRegistration);
+          document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) requestPushRegistration();
+          });
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+              setTimeout(requestPushRegistration, 1200);
+            }, { once: true });
+          } else {
+            setTimeout(requestPushRegistration, 1200);
+          }"""
+          html = html.replace(marker, addition, 1)
+          html_path.write_text(html, encoding="utf-8")
+          gradle = root / "app/build.gradle.kts"
+          build = gradle.read_text(encoding="utf-8")
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 31", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.9"', build, count=1)
+          if c1 != 1 or c2 != 1:
+              raise SystemExit("Could not set User App version 1.3.9 / code 31.")
+          gradle.write_text(build, encoding="utf-8")
+          config = root / "app/src/main/assets/config.js"
+          config_text = config.read_text(encoding="utf-8")
+          lines = [line for line in config_text.splitlines() if not line.strip().startswith("window.GUDIYA_APP_VERSION")]
+          config.write_text("\n".join(lines).rstrip() + "\nwindow.GUDIYA_APP_VERSION = '1.3.9';\n", encoding="utf-8")
+          print("FCM token now re-registers on startup, focus and foreground resume.")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
+          Path("/tmp/gudiya-inline-push.js").write_text("\n".join(scripts), encoding="utf-8")
+          PY
+          node --check /tmp/gudiya-inline-push.js
+          grep -Fq "gudiyaPushForegroundRegistration" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.9';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
 
       - name: Prepare stable signing key
         shell: bash
@@ -837,7 +901,7 @@ jobs:
           test -n "$AAPT" || (echo "Missing aapt"; exit 1)
           test -n "$APKSIGNER" || (echo "Missing apksigner"; exit 1)
           BADGING="$("$AAPT" dump badging gudiya-taxi-partner.apk)"
-          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='30' versionName='1.3.8'" >/dev/null || {
+          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='31' versionName='1.3.9'" >/dev/null || {
             echo "ERROR: User APK package/version metadata mismatch."
             echo "$BADGING" | head -5
             exit 1
