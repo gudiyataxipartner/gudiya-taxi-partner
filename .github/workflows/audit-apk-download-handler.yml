@@ -1,0 +1,19 @@
+name: Audit Android APK Download Handler
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/audit-apk-download-handler.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect Android WebView download handling
+        run: |
+          set -euo pipefail
+          unzip -oq Gudiya-Taxi-Partner-New-Project.zip -d app-source
+          sed -n '1,240p' app-source/GudiyaTaxiPartner/app/src/main/java/com/gudiyataxipartner/MainActivity.java
