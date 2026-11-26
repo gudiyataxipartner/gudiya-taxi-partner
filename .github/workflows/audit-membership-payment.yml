@@ -1,0 +1,36 @@
+name: Audit Membership Payment Flow
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/audit-membership-payment.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect payment UI and API calls
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -oq Gudiya-Taxi-Partner-New-Project.zip -d app-source
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app-source/GudiyaTaxiPartner/app/src/main/assets")
+          p=root/"index.html"
+          s=p.read_text(encoding="utf-8")
+          print("HTML length:",len(s))
+          terms=["सदस्यता भुगतान","भुगतान सुविधा","सदस्यता प्लान देखें","Bharat","bharat","UPI","upi","membership","Membership","payment","Payment","submitPayment","createPayment","initiatePayment","verifyPayment","payment-status","payment/status","openUPI","upi://","payeeVpa","merchantVpa"]
+          for term in terms:
+              matches=list(re.finditer(re.escape(term),s,re.I))
+              if matches:
+                  print("\\n===== TERM",term,"count",len(matches),"=====")
+                  for m in matches[:6]:
+                      print(s[max(0,m.start()-900):min(len(s),m.start()+1800)])
+          print("\\n===== CONFIG =====")
+          print((root/"config.js").read_text(encoding="utf-8")[:5000])
+          PY
