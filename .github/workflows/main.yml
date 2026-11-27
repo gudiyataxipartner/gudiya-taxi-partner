@@ -836,40 +836,40 @@ jobs:
               raise SystemExit("BharatPe QR asset was not generated correctly.")
 
           html = html_path.read_text(encoding="utf-8")
-          pattern = r'(<p id="upiAmountLabel">[^<]*</p>)(\\s*)(<a id="upiPayLink"[^>]*>).*?(</a>)'
-          new_markup = (
-              r'\1'
-              '<div id="bharatpeQrFallback" class="card" style="margin:12px 0;text-align:center;background:#fff">'
-              '<b>📷 BharatPe QR स्कैन करके भुगतान करें</b>'
-              '<img src="payment-qr.svg" alt="BharatPe UPI payment QR code" '
-              'style="display:block;width:min(100%,280px);height:auto;margin:12px auto;background:#fff" />'
-              '<p style="font-size:13px;line-height:1.6">दूसरे मोबाइल से QR स्कैन करें और UPI ऐप में चुने हुए प्लान की पूरी रकम डालें: <b id="upiQrAmount">—</b>। '
-              'QR में रकम अपने-आप नहीं भरी जाती।</p>'
-              '<p style="font-size:12px;overflow-wrap:anywhere">UPI ID: <b>BHARATPE2Q0G0U8Z8L34528@unitype</b></p>'
-              '</div>'
-              '<a id="upiPayLink" class="btn teal" style="display:block;text-align:center;text-decoration:none" href="#">📲 UPI ऐप खोलें और भुगतान करें</a>'
-          )
-          html, markup_count = re.subn(pattern, lambda m: m.group(1) + new_markup[len(r'\1'):], html, count=1, flags=re.S)
+          markup_pattern = r'(<p id="upiAmountLabel">[^<]*</p>\s*)<a id="upiPayLink"[^>]*>.*?</a>'
+          def replace_payment_markup(match):
+              return match.group(1) + (
+                  '<div id="bharatpeQrFallback" class="card" style="margin:12px 0;text-align:center;background:#fff">'
+                  '<b>📷 BharatPe QR स्कैन करके भुगतान करें</b>'
+                  '<img src="payment-qr.svg" alt="BharatPe UPI payment QR code" '
+                  'style="display:block;width:min(100%,280px);height:auto;margin:12px auto;background:#fff" />'
+                  '<p style="font-size:13px;line-height:1.6">दूसरे मोबाइल से QR स्कैन करें और UPI ऐप में चुने हुए प्लान की पूरी रकम डालें: <b id="upiQrAmount">—</b>। '
+                  'QR में रकम अपने-आप नहीं भरी जाती।</p>'
+                  '<p style="font-size:12px;overflow-wrap:anywhere">UPI ID: <b>BHARATPE2Q0G0U8Z8L34528@unitype</b></p>'
+                  '</div>'
+                  '<a id="upiPayLink" class="btn teal" style="display:block;text-align:center;text-decoration:none" href="#">📲 UPI ऐप खोलें और भुगतान करें</a>'
+              )
+          html, markup_count = re.subn(markup_pattern, replace_payment_markup, html, count=1, flags=re.S)
           if markup_count != 1:
-              raise SystemExit("Membership payment QR insertion point missing or duplicated.")
+              raise SystemExit(f"Membership payment QR insertion point count: {markup_count}")
 
-          amount_pattern = r"(document\\.getElementById\\('upiAmountLabel'\\)\\.textContent=[^;]+;)(const params=new URLSearchParams\\()"
+          amount_pattern = r"(document\.getElementById\('upiAmountLabel'\)\.textContent=[^;]+;)(const params=new URLSearchParams\()"
           def add_qr_amount(match):
               return match.group(1) + "const qrAmount=document.getElementById('upiQrAmount');if(qrAmount)qrAmount.textContent='₹'+amount;" + match.group(2)
           html, amount_count = re.subn(amount_pattern, add_qr_amount, html, count=1)
           if amount_count != 1:
-              raise SystemExit("Membership QR amount display target missing or duplicated.")
+              raise SystemExit(f"Membership QR amount display target count: {amount_count}")
           html_path.write_text(html, encoding="utf-8")
-          print("BharatPe QR fallback added with exact plan amount; existing UTR/Admin verification remains unchanged.")
+          print("BharatPe QR fallback added with exact plan amount; UTR/Admin verification remains unchanged.")
           PY
           python3 - <<'PY'
           from pathlib import Path
           import re
           html = Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script\\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
+          scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
           if not scripts:
               raise SystemExit("No inline JavaScript found during QR build validation.")
-          Path("/tmp/gudiya-inline-qr.js").write_text("\\n".join(scripts), encoding="utf-8")
+          Path("/tmp/gudiya-inline-qr.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/gudiya-inline-qr.js
           test -s app-source/GudiyaTaxiPartner/app/src/main/assets/payment-qr.svg
