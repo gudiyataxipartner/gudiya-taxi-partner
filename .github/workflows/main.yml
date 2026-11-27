@@ -870,13 +870,13 @@ jobs:
           from pathlib import Path
           import re
           html = Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script\\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
+          scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
           Path("/tmp/gudiya-inline-qr.js").write_text("\\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/gudiya-inline-qr.js
           test -s app-source/GudiyaTaxiPartner/app/src/main/assets/payment-qr.svg
           grep -Fq "bharatpeQrFallback" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
-          grep -Fq "UPI में चुने हुए प्लान की पूरी रकम डालें" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          grep -Fq "UPI ऐप में चुने हुए प्लान की पूरी रकम डालें" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
 
       - name: Register FCM token whenever the User App opens or returns to foreground
         shell: bash
