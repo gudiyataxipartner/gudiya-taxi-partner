@@ -709,8 +709,8 @@ jobs:
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 32", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.10"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 33", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.11"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           old_types = """    buildTypes {
@@ -767,7 +767,7 @@ jobs:
           if not config_js.is_file():
               raise SystemExit("Android app config.js missing; refusing to build.")
           config_content = config_js.read_text(encoding="utf-8")
-          app_version_line = "window.GUDIYA_APP_VERSION = '1.3.10';"
+          app_version_line = "window.GUDIYA_APP_VERSION = '1.3.11';"
           if "window.GUDIYA_APP_VERSION" in config_content:
               config_lines = [line for line in config_content.splitlines() if not line.strip().startswith("window.GUDIYA_APP_VERSION")]
               config_content = chr(10).join(config_lines).rstrip() + chr(10) + app_version_line + chr(10)
@@ -787,13 +787,13 @@ jobs:
           grep -Fq "gudiyaUpdateGate" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           grep -Fq "सदस्यता का भुगतान BharatPe UPI से किया जा सकता है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           if grep -Fq "भुगतान सुविधा पर अभी काम चल रहा है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html; then echo "Stale membership payment text remains"; exit 1; fi
-          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.10';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.11';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
           grep -Fq "display:none" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           grep -Fq "layer.style.display='flex'" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
-          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.10';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.11';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
 
 
-      - name: Add BharatPe QR fallback to User App membership payment
+      - name: Add verified BharatPe QR and align UPI app payment request
         shell: bash
         run: |
           set -euo pipefail
@@ -804,15 +804,15 @@ jobs:
           root = Path("app-source/GudiyaTaxiPartner")
           assets = root / "app/src/main/assets"
           html_path = assets / "index.html"
-          rows_hex = ["0000000000000000","0000000000000000","0000000000000000","0000000000000000","01fc667cd144c7f0","01057cc19a5ce410","0174dc4f57cf25d0","0174fffa68ead5d0","0174f90ff6b6c5d0","01057ec71c5d4410","01fd5555555557f0","00010a071b009000","001ea31df97aa620","00c02f438b963980","001556edc9c7b6a0","00b2659a380a3180","013c27a268ba2b20","01cb9b7d4ef6daf0","00660258d9df5a70","019bf2e7faf28890","00be49ceb6b66b80","0071b8f55af4f170","0105582c612eb010","007b7b60532ef910","011cfa0dab68f7b0","0022b3483545d3d0","01c62243dd1faf90","0013dc2d0394b1b0","019f2c85f4b67f00","01b19b2517bed150","0115d58d576d9590","017197bf1c989130","019fdde9f7d09f80","0110b0cf6ec5eb70","019e9d9496d0cc90","01501863a9b367a0","014f25487abea230","00b3dda86614e030","004748c0e13d4690","0040a0f98db03a10","00dfdb02d3b8a080","0022e1b0d815f310","012f1142fc745610","0160b8b88db26aa0","005795916cf27970","01d1dcd175743b40","01bd6db726078e30","00c3d1524e3aa2b0","0026375df59e7f00","000147711454f1d0","01fd590956a6f590","01058a63101251b0","0175eda9fcfadf00","0174ad278ea5c840","0174af1b5ad7ee70","0104f721fd2964b0","01fc645af4de14a0","0000000000000000","0000000000000000","0000000000000000","0000000000000000"]
+          rows_hex = ["0000000000000","0000000000000","0000000000000","0000000000000","01fc6ac2a47f0","0105e84c00410","0175e310535d0","01751643b95d0","017498120f5d0","01047b8d14410","01fd5555557f0","0001029393000","01055c40afce0","01ca825a3a3c0","00a70148f5180","0048364210080","017ffa3213720","015a9cd171b10","00af18a8ac580","01e3472551bf0","008f6bf488850","01fab5d3925a0","01f6c13f2be70","00e133c6010a0","003f271bc82d0","01b37ae8aa760","009c5918a9b80","0028b54c019a0","012d0cbde3600","00f17d2323710","001e030a30a00","0183cc13555c0","0116fed7e8160","0123224432400","01cfe2ed2a310","0151bc4621e40","010ddb07edf20","0001b17a03160","01fc2d557f540","0104de08171a0","0174cbdac3fa0","01746db335a00","01746f4537560","01046332567d0","01fde04e8a840","0000000000000","0000000000000","0000000000000","0000000000000"]
           size = len(rows_hex)
-          if size != 61:
-              raise SystemExit("BharatPe QR matrix size is invalid.")
+          if size != 49:
+              raise SystemExit("Verified BharatPe QR matrix size is invalid.")
           path = []
           for y, encoded in enumerate(rows_hex):
-              bits = format(int(encoded, 16), "061b")
+              bits = format(int(encoded, 16), f"0{size}b")
               if len(bits) != size:
-                  raise SystemExit("BharatPe QR matrix row is invalid.")
+                  raise SystemExit("Verified BharatPe QR matrix row is invalid.")
               x = 0
               while x < size:
                   if bits[x] == "0":
@@ -824,57 +824,73 @@ jobs:
                   width = x - start_x
                   path.append(f"M{start_x} {y}h{width}v1h-{width}z")
           svg = (
-              f'<svg xmlns="http://www.w3.org/2000/svg" width="488" height="488" '
+              f'<svg xmlns="http://www.w3.org/2000/svg" width="588" height="588" '
               f'viewBox="0 0 {size} {size}" shape-rendering="crispEdges" '
-              f'role="img" aria-label="BharatPe UPI payment QR code">'
+              f'role="img" aria-label="Verified BharatPe UPI merchant QR code">'
               f'<rect width="{size}" height="{size}" fill="#fff"/>'
               f'<path fill="#000" d="{"".join(path)}"/></svg>'
           )
           qr_path = assets / "payment-qr.svg"
           qr_path.write_text(svg, encoding="utf-8")
           if not qr_path.is_file() or qr_path.stat().st_size < 5000:
-              raise SystemExit("BharatPe QR asset was not generated correctly.")
+              raise SystemExit("Verified BharatPe QR asset was not generated correctly.")
 
           html = html_path.read_text(encoding="utf-8")
-          markup_pattern = r'(<p id="upiAmountLabel">[^<]*</p>\s*)<a id="upiPayLink"[^>]*>.*?</a>'
+          markup_pattern = r'(<p id="upiAmountLabel">[^<]*</p>\\s*)<a id="upiPayLink"[^>]*>.*?</a>'
           def replace_payment_markup(match):
               return match.group(1) + (
                   '<div id="bharatpeQrFallback" class="card" style="margin:12px 0;text-align:center;background:#fff">'
                   '<b>📷 BharatPe QR स्कैन करके भुगतान करें</b>'
-                  '<img src="payment-qr.svg" alt="BharatPe UPI payment QR code" '
+                  '<img src="payment-qr.svg" alt="Verified BharatPe UPI merchant QR code" '
                   'style="display:block;width:min(100%,280px);height:auto;margin:12px auto;background:#fff" />'
-                  '<p style="font-size:13px;line-height:1.6">दूसरे मोबाइल से QR स्कैन करें और UPI ऐप में चुने हुए प्लान की पूरी रकम डालें: <b id="upiQrAmount">—</b>। '
-                  'QR में रकम अपने-आप नहीं भरी जाती।</p>'
+                  '<p style="font-size:13px;line-height:1.6">दूसरे मोबाइल से QR स्कैन करें या ऊपर UPI विकल्प चुनें। भुगतान में चुने हुए प्लान की पूरी रकम भरें: '
+                  '<b id="upiQrAmount">—</b>।</p>'
                   '<p style="font-size:12px;overflow-wrap:anywhere">UPI ID: <b>BHARATPE2Q0G0U8Z8L34528@unitype</b></p>'
                   '</div>'
-                  '<a id="upiPayLink" class="btn teal" style="display:block;text-align:center;text-decoration:none" href="#">📲 UPI ऐप खोलें और भुगतान करें</a>'
+                  '<a id="upiPayLink" class="btn teal" style="display:block;text-align:center;text-decoration:none" href="#">📲 UPI ऐप खोलें और रकम भरें</a>'
               )
           html, markup_count = re.subn(markup_pattern, replace_payment_markup, html, count=1, flags=re.S)
           if markup_count != 1:
               raise SystemExit(f"Membership payment QR insertion point count: {markup_count}")
 
-          amount_pattern = r"(document\.getElementById\('upiAmountLabel'\)\.textContent=[^;]+;)(const params=new URLSearchParams\()"
+          amount_pattern = r"(document\\.getElementById\\('upiAmountLabel'\\)\\.textContent=[^;]+;)(const params=new URLSearchParams\\()"
           def add_qr_amount(match):
               return match.group(1) + "const qrAmount=document.getElementById('upiQrAmount');if(qrAmount)qrAmount.textContent='₹'+amount;" + match.group(2)
           html, amount_count = re.subn(amount_pattern, add_qr_amount, html, count=1)
           if amount_count != 1:
               raise SystemExit(f"Membership QR amount display target count: {amount_count}")
+
+          old_params = "const params=new URLSearchParams({pa:'BHARATPE2Q0G0U8Z8L34528@unitype',pn:'Gudiya Taxi Partner',am:String(amount),cu:'INR',tn:'Gudiya Taxi Partner membership '+selectedUpiPlan+' month'});"
+          new_params = "const params=new URLSearchParams({pa:'BHARATPE2Q0G0U8Z8L34528@unitype',pn:'BharatPe Merchant',cu:'INR',tn:'Pay To BharatPe Merchant'});"
+          if html.count(old_params) != 1:
+              raise SystemExit("Old UPI payment request payload not found exactly once.")
+          html = html.replace(old_params, new_params, 1)
+
+          old_message = "box.textContent='अब UPI ऐप खोलें, भुगतान पूरा करें और फिर UTR / Transaction ID नीचे जमा करें। भुगतान की पुष्टि होने तक membership active नहीं होगी।';"
+          new_message = "box.textContent='UPI ऐप में BharatPe Merchant चुनें और ठीक ₹'+amount+' भरकर भुगतान करें। QR से भी यही भुगतान कर सकते हैं। सफल भुगतान के बाद UTR / Transaction ID जमा करें। Admin पुष्टि के बाद ही membership active होगी।';"
+          if html.count(old_message) != 1:
+              raise SystemExit("Old UPI payment instructions not found exactly once.")
+          html = html.replace(old_message, new_message, 1)
           html_path.write_text(html, encoding="utf-8")
-          print("BharatPe QR fallback added with exact plan amount; UTR/Admin verification remains unchanged.")
+          print("Old UPI button now sends the exact same merchant payload as the working BharatPe QR; plan amount is entered manually.")
           PY
           python3 - <<'PY'
           from pathlib import Path
           import re
           html = Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
+          scripts = re.findall(r"<script\\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
           if not scripts:
-              raise SystemExit("No inline JavaScript found during QR build validation.")
-          Path("/tmp/gudiya-inline-qr.js").write_text("\n".join(scripts), encoding="utf-8")
+              raise SystemExit("No inline JavaScript found during payment build validation.")
+          Path("/tmp/gudiya-inline-payment.js").write_text("\\n".join(scripts), encoding="utf-8")
           PY
-          node --check /tmp/gudiya-inline-qr.js
+          node --check /tmp/gudiya-inline-payment.js
           test -s app-source/GudiyaTaxiPartner/app/src/main/assets/payment-qr.svg
           grep -Fq "bharatpeQrFallback" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
-          grep -Fq "UPI ऐप में चुने हुए प्लान की पूरी रकम डालें" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          grep -Fq "pn:'BharatPe Merchant'" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          grep -Fq "tn:'Pay To BharatPe Merchant'" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          grep -Fq "ठीक ₹'+amount+' भरकर भुगतान करें" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          if grep -Fq "pn:'Gudiya Taxi Partner'" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html; then echo "Old mismatched merchant name remains in UPI payment payload"; exit 1; fi
+          if grep -Fq "am:String(amount)" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html; then echo "Old prefilled amount remains in UPI payment payload"; exit 1; fi
 
       - name: Register FCM token whenever the User App opens or returns to foreground
         shell: bash
@@ -917,15 +933,15 @@ jobs:
           html_path.write_text(html, encoding="utf-8")
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 32", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.10"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 33", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.11"', build, count=1)
           if c1 != 1 or c2 != 1:
-              raise SystemExit("Could not set User App version 1.3.10 / code 31.")
+              raise SystemExit("Could not set User App version 1.3.11 / code 31.")
           gradle.write_text(build, encoding="utf-8")
           config = root / "app/src/main/assets/config.js"
           config_text = config.read_text(encoding="utf-8")
           lines = [line for line in config_text.splitlines() if not line.strip().startswith("window.GUDIYA_APP_VERSION")]
-          config.write_text("\n".join(lines).rstrip() + "\nwindow.GUDIYA_APP_VERSION = '1.3.10';\n", encoding="utf-8")
+          config.write_text("\n".join(lines).rstrip() + "\nwindow.GUDIYA_APP_VERSION = '1.3.11';\n", encoding="utf-8")
           print("FCM token now re-registers on startup, focus and foreground resume.")
           PY
           python3 - <<'PY'
@@ -937,7 +953,7 @@ jobs:
           PY
           node --check /tmp/gudiya-inline-push.js
           grep -Fq "gudiyaPushForegroundRegistration" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
-          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.10';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.11';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
 
       - name: Prepare stable signing key
         shell: bash
@@ -984,7 +1000,7 @@ jobs:
           test -n "$AAPT" || (echo "Missing aapt"; exit 1)
           test -n "$APKSIGNER" || (echo "Missing apksigner"; exit 1)
           BADGING="$("$AAPT" dump badging gudiya-taxi-partner.apk)"
-          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='32' versionName='1.3.10'" >/dev/null || {
+          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='32' versionName='1.3.11'" >/dev/null || {
             echo "ERROR: User APK package/version metadata mismatch."
             echo "$BADGING" | head -5
             exit 1
