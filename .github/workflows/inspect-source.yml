@@ -114,7 +114,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           html=(Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html")).read_text(encoding="utf-8")
-          tokens=("id=\\"membership\\"","upiPaymentForm","startUpiPayment","upiUtr","paymentMessage","upi://","function submitUpi","async function submitUpi")
+          tokens=('id="membership"',"upiPaymentForm","startUpiPayment","upiUtr","paymentMessage","upi://","function submitUpi","async function submitUpi")
           for token in tokens:
               print("\\n===== PAYMENT SOURCE TOKEN: "+token+" =====")
               start=0
