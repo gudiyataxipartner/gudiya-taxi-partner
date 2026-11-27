@@ -106,3 +106,24 @@ jobs:
                 d=json.loads(p.read_text(encoding="utf-8"))
                 print("project_id=",d.get("project_info",{}).get("project_id"))
           PY
+
+      - name: Inspect old UPI payment launcher
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=(Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html")).read_text(encoding="utf-8")
+          for token in ("function startUpiPayment","upiPayLink","URLSearchParams","upiUtr","function openExternalPayment","shouldOverrideUrlLoading"):
+              print("\\n===== "+token+" =====")
+              for m in list(re.finditer(re.escape(token),html,re.I))[:4]:
+                  print(html[max(0,m.start()-1800):min(len(html),m.start()+4200)])
+          print("\\n===== NATIVE UPI HANDLER =====")
+          for p in (Path("app-source/GudiyaTaxiPartner/app/src/main/java")).rglob("*.kt"):
+              s=p.read_text(encoding="utf-8")
+              if any(x in s.lower() for x in ("upi://","intent.action_view","shouldoverrideurlloading")):
+                  print(p)
+                  for token in ("upi://","Intent.ACTION_VIEW","shouldOverrideUrlLoading"):
+                      i=s.lower().find(token.lower())
+                      if i>=0: print(s[max(0,i-1200):i+2800])
+          PY
