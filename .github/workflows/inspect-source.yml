@@ -106,23 +106,3 @@ jobs:
                 d=json.loads(p.read_text(encoding="utf-8"))
                 print("project_id=",d.get("project_info",{}).get("project_id"))
           PY
-
-      - name: Inspect User App membership payment source
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          html=(Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html")).read_text(encoding="utf-8")
-          tokens=('id="membership"',"upiPaymentForm","startUpiPayment","upiUtr","paymentMessage","upi://","function submitUpi","async function submitUpi")
-          for token in tokens:
-              print("\\n===== PAYMENT SOURCE TOKEN: "+token+" =====")
-              start=0
-              count=0
-              while count<3:
-                  pos=html.find(token,start)
-                  if pos<0: break
-                  print(html[max(0,pos-1600):min(len(html),pos+3500)])
-                  start=pos+len(token)
-                  count+=1
-          PY
