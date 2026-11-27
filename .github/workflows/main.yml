@@ -799,6 +799,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           root = Path("app-source/GudiyaTaxiPartner")
           assets = root / "app/src/main/assets"
@@ -817,11 +818,11 @@ jobs:
                   if bits[x] == "0":
                       x += 1
                       continue
-                  start = x
+                  start_x = x
                   while x < size and bits[x] == "1":
                       x += 1
-                  width = x - start
-                  path.append(f"M{start} {y}h{width}v1h-{width}z")
+                  width = x - start_x
+                  path.append(f"M{start_x} {y}h{width}v1h-{width}z")
           svg = (
               f'<svg xmlns="http://www.w3.org/2000/svg" width="488" height="488" '
               f'viewBox="0 0 {size} {size}" shape-rendering="crispEdges" '
@@ -835,9 +836,9 @@ jobs:
               raise SystemExit("BharatPe QR asset was not generated correctly.")
 
           html = html_path.read_text(encoding="utf-8")
-          old_markup = '<p id="upiAmountLabel">चुना हुआ प्लान</p><a id="upiPayLink" class="btn teal" style="display:block;text-align:center;text-decoration:none" href="#">UPI ऐप खोलें और भुगतान करें</a>'
+          pattern = r'(<p id="upiAmountLabel">[^<]*</p>)(\\s*)(<a id="upiPayLink"[^>]*>).*?(</a>)'
           new_markup = (
-              '<p id="upiAmountLabel">चुना हुआ प्लान</p>'
+              r'\1'
               '<div id="bharatpeQrFallback" class="card" style="margin:12px 0;text-align:center;background:#fff">'
               '<b>📷 BharatPe QR स्कैन करके भुगतान करें</b>'
               '<img src="payment-qr.svg" alt="BharatPe UPI payment QR code" '
@@ -848,29 +849,26 @@ jobs:
               '</div>'
               '<a id="upiPayLink" class="btn teal" style="display:block;text-align:center;text-decoration:none" href="#">📲 UPI ऐप खोलें और भुगतान करें</a>'
           )
-          if html.count(old_markup) != 1:
+          html, markup_count = re.subn(pattern, lambda m: m.group(1) + new_markup[len(r'\1'):], html, count=1, flags=re.S)
+          if markup_count != 1:
               raise SystemExit("Membership payment QR insertion point missing or duplicated.")
-          html = html.replace(old_markup, new_markup, 1)
 
-          old_amount = "document.getElementById('upiAmountLabel').textContent=(selectedUpiPlan===1?'1 महीना':selectedUpiPlan===3?'3 महीने':'6 महीने')+' का प्लान — ₹'+amount;const params="
-          new_amount = "document.getElementById('upiAmountLabel').textContent=(selectedUpiPlan===1?'1 महीना':selectedUpiPlan===3?'3 महीने':'6 महीने')+' का प्लान — ₹'+amount;const qrAmount=document.getElementById('upiQrAmount');if(qrAmount)qrAmount.textContent='₹'+amount;const params="
-          if html.count(old_amount) != 1:
+          amount_pattern = r"(document\\.getElementById\\('upiAmountLabel'\\)\\.textContent=[^;]+;)(const params=new URLSearchParams\\()"
+          def add_qr_amount(match):
+              return match.group(1) + "const qrAmount=document.getElementById('upiQrAmount');if(qrAmount)qrAmount.textContent='₹'+amount;" + match.group(2)
+          html, amount_count = re.subn(amount_pattern, add_qr_amount, html, count=1)
+          if amount_count != 1:
               raise SystemExit("Membership QR amount display target missing or duplicated.")
-          html = html.replace(old_amount, new_amount, 1)
-
-          old_message = "box.textContent='अब UPI ऐप खोलें, भुगतान पूरा करें और फिर UTR / Transaction ID नीचे जमा करें। भुगतान की पुष्टि होने तक membership active नहीं होगी।';"
-          new_message = "box.textContent='QR स्कैन करें या UPI ऐप खोलें। भुगतान में ठीक ₹'+amount+' डालें, भुगतान पूरा करें और फिर UTR / Transaction ID जमा करें। Admin पुष्टि के बाद ही membership active होगी।';"
-          if html.count(old_message) != 1:
-              raise SystemExit("Membership payment instructions target missing or duplicated.")
-          html = html.replace(old_message, new_message, 1)
           html_path.write_text(html, encoding="utf-8")
-          print("BharatPe QR fallback added; selected plan amount and existing UTR verification are retained.")
+          print("BharatPe QR fallback added with exact plan amount; existing UTR/Admin verification remains unchanged.")
           PY
           python3 - <<'PY'
           from pathlib import Path
           import re
           html = Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
+          scripts = re.findall(r"<script\\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
+          if not scripts:
+              raise SystemExit("No inline JavaScript found during QR build validation.")
           Path("/tmp/gudiya-inline-qr.js").write_text("\\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/gudiya-inline-qr.js
