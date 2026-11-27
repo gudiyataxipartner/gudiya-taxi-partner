@@ -106,17 +106,3 @@ jobs:
                 d=json.loads(p.read_text(encoding="utf-8"))
                 print("project_id=",d.get("project_info",{}).get("project_id"))
           PY
-
-      - name: Inspect Android WebView external URL handling
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          root=Path("app-source/GudiyaTaxiPartner/app/src/main")
-          for p in list((root/"java").rglob("*.java"))+list((root/"java").rglob("*.kt")):
-              s=p.read_text(encoding="utf-8")
-              print("\\n===== "+str(p)+" =====")
-              for token in ("WebViewClient","shouldOverrideUrlLoading","Intent.ACTION_VIEW","setWebViewClient","class MainActivity"):
-                  i=s.find(token)
-                  if i>=0: print(s[max(0,i-1800):i+4500])
-          PY
