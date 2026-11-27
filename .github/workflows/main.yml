@@ -836,7 +836,7 @@ jobs:
               raise SystemExit("Verified BharatPe QR asset was not generated correctly.")
 
           html = html_path.read_text(encoding="utf-8")
-          markup_pattern = r'(<p id="upiAmountLabel">[^<]*</p>\\s*)<a id="upiPayLink"[^>]*>.*?</a>'
+          markup_pattern = r'(<p id="upiAmountLabel">[^<]*</p>\s*)<a id="upiPayLink"[^>]*>.*?</a>'
           def replace_payment_markup(match):
               return match.group(1) + (
                   '<div id="bharatpeQrFallback" class="card" style="margin:12px 0;text-align:center;background:#fff">'
@@ -853,7 +853,7 @@ jobs:
           if markup_count != 1:
               raise SystemExit(f"Membership payment QR insertion point count: {markup_count}")
 
-          amount_pattern = r"(document\\.getElementById\\('upiAmountLabel'\\)\\.textContent=[^;]+;)(const params=new URLSearchParams\\()"
+          amount_pattern = r"(document\.getElementById\('upiAmountLabel'\)\.textContent=[^;]+;)(const params=new URLSearchParams\()"
           def add_qr_amount(match):
               return match.group(1) + "const qrAmount=document.getElementById('upiQrAmount');if(qrAmount)qrAmount.textContent='₹'+amount;" + match.group(2)
           html, amount_count = re.subn(amount_pattern, add_qr_amount, html, count=1)
@@ -878,10 +878,10 @@ jobs:
           from pathlib import Path
           import re
           html = Path("app-source/GudiyaTaxiPartner/app/src/main/assets/index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script\\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
+          scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", html, flags=re.S|re.I)
           if not scripts:
               raise SystemExit("No inline JavaScript found during payment build validation.")
-          Path("/tmp/gudiya-inline-payment.js").write_text("\\n".join(scripts), encoding="utf-8")
+          Path("/tmp/gudiya-inline-payment.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/gudiya-inline-payment.js
           test -s app-source/GudiyaTaxiPartner/app/src/main/assets/payment-qr.svg
