@@ -42,7 +42,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
+          python3 - <<'PY' 2>&1 | tee patch-debug.log
+
           from pathlib import Path
           import re
 
@@ -813,6 +814,13 @@ jobs:
           grep -Fq "window.GUDIYA_APP_VERSION = '1.3.13';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
 
 
+      - name: Upload source patch diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-app-source-patch-debug
+          path: patch-debug.log
+          if-no-files-found: warn
       - name: Add verified BharatPe QR and align UPI app payment request
         shell: bash
         run: |
