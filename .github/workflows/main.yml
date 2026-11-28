@@ -59,18 +59,14 @@ jobs:
               raise SystemExit("Duty date/time input target missing or duplicated; refusing UI patch.")
           content = content.replace(old_date, new_date, 1)
           content = content.replace(old_time, new_time, 1)
-          content, row_open_count = re.subn(
+          # Stack the existing vehicle/date row vertically on small screens.
+          content, row_count = re.subn(
               r'<div class="row">(?=<div class="field"><label>[^<]*</label><select id="vehicle">)',
-              '', content, count=1
+              '<div class="row" style="display:grid;grid-template-columns:1fr;gap:8px">',
+              content, count=1
           )
-          if row_open_count != 1:
-              raise SystemExit("Vehicle/date row opening tag not found exactly once.")
-          content, row_close_count = re.subn(
-              r'(<input id="date" type="date" required[^>]*></div>)</div>(<div class="field"><label>[^<]*</label><input id="time" type="time" required[^>]*></div>)',
-              r'\1\2', content, count=1
-          )
-          if row_close_count != 1:
-              raise SystemExit("Vehicle/date row closing tag not found exactly once.")
+          if row_count != 1:
+              raise SystemExit("Vehicle/date row not found exactly once; refusing UI patch.")
           if content.count('min-height:60px;') != 2:
               raise SystemExit("Large native date/time picker validation failed.")
 
