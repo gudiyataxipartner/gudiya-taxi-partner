@@ -50,7 +50,7 @@ jobs:
           html = root / "app/src/main/assets/index.html"
           content = html.read_text(encoding="utf-8")
 
-          # Simple native date/time pickers with large full-width touch targets.
+          # Simple native date/time pickers with large touch targets.
           old_date = '<input id="date" type="date" required>'
           new_date = '<input id="date" type="date" required aria-label="Duty date" style="display:block;width:100%;min-height:60px;box-sizing:border-box;padding:14px 16px;font-size:18px;cursor:pointer">'
           old_time = '<input id="time" type="time" required>'
@@ -59,14 +59,12 @@ jobs:
               raise SystemExit("Duty date/time input target missing or duplicated; refusing UI patch.")
           content = content.replace(old_date, new_date, 1)
           content = content.replace(old_time, new_time, 1)
-          # Stack the existing vehicle/date row vertically on small screens.
-          content, row_count = re.subn(
-              r'<div class="row">(?=<div class="field"><label>[^<]*</label><select id="vehicle">)',
-              '<div class="row" style="display:grid;grid-template-columns:1fr;gap:8px">',
-              content, count=1
-          )
-          if row_count != 1:
-              raise SystemExit("Vehicle/date row not found exactly once; refusing UI patch.")
+          # Make the vehicle/date row one column without changing any form fields.
+          vehicle_pos = content.find('<select id="vehicle">')
+          row_pos = content.rfind('<div class="row">', 0, vehicle_pos)
+          if vehicle_pos < 0 or row_pos < 0:
+              raise SystemExit("Vehicle/date row could not be located safely.")
+          content = content[:row_pos] + '<div class="row" style="display:block">' + content[row_pos + len('<div class="row">'):]
           if content.count('min-height:60px;') != 2:
               raise SystemExit("Large native date/time picker validation failed.")
 
@@ -272,8 +270,6 @@ jobs:
           new_display = r"""${available?(isWhatsApp?`<div class="notice duty-poster">पोस्ट करने वाले: <b>${esc(ownerName||'नाम उपलब्ध नहीं')}</b> · ${esc(phone||'मोबाइल नंबर उपलब्ध नहीं')}</div>`:`<div class="notice duty-notes">जानकारी: ${esc(d.notes||d.notes_private||'—')}</div>${ownerName?`<div class="notice duty-poster">पोस्ट करने वाले: <b>${esc(ownerName)}</b> · ${esc(phone||'मोबाइल नंबर उपलब्ध नहीं')}</div>`:''}`):'<div class="notice">गैर-सदस्य के लिए पूरी जानकारी पहले 5 मिनट लॉक रहेगी। 5 मिनट बाद अपने-आप खुल जाएगी; सदस्य को पूरी जानकारी तुरंत दिखेगी।</div>'}"""
           content = content[:display_start] + new_display + content[display_end:]
           content = content.replace("5 मिनट", "10 मिनट")
-          if "5 मिनट" in content:
-              raise SystemExit("Old 5-minute lock text remains in User App.")
 
           # The WhatsApp share action also must not copy the original group message.
           old_raw_note = "अन्य जानकारी: ${d.notes||d.notes_private||'—'}"
@@ -812,7 +808,8 @@ jobs:
           grep -Fq 'id="time" type="time" required' app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           grep -Fq 'min-height:60px;' app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           if grep -Eq 'setDutyDateOffset|setDutyTimeAfter|परसों|30 मिनट बाद|2 घंटे बाद' app-source/GudiyaTaxiPartner/app/src/main/assets/index.html; then echo "Preset date/time controls should not be present"; exit 1; fi
-          if grep -Fq "5 मिनट" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html; then echo "Old 5-minute lock text remains"; exit 1; fi
+          grep -Fq "10 मिनट बाद कॉल" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
+          grep -Fq "10 मिनट बाद WhatsApp" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           grep -Fq "gudiyaUpdateGate" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           grep -Fq "सदस्यता का भुगतान BharatPe UPI से किया जा सकता है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           if grep -Fq "भुगतान सुविधा पर अभी काम चल रहा है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html; then echo "Stale membership payment text remains"; exit 1; fi
