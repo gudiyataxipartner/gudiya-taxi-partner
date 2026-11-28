@@ -97,6 +97,18 @@ jobs:
                   raise SystemExit('User App audit fix target missing; refusing to build: ' + old[:100])
               content = content.replace(old, new, 1)
 
+          remote_fetch_old = "const data=await apiRequest('/api/duties?'+q.toString());const filtered=filterDutyResults(data.duties||[]);"
+          remote_fetch_new = r"""const data=await apiRequest('/api/duties?'+q.toString());window.__gudiyaRemoteMessages=data.appMessages||window.__gudiyaRemoteMessages||{};const announcement=getRemoteAppMessage('announcement','');const announcementHtml=announcement?'<div class="notice remote-app-notice">'+esc(announcement).replace(/\n/g,'<br>')+'</div>':'';const filtered=filterDutyResults(data.duties||[]);"""
+          if content.count(remote_fetch_old) != 1:
+              raise SystemExit("Duty Search remote message fetch target missing; refusing to build.")
+          content = content.replace(remote_fetch_old, remote_fetch_new, 1)
+
+          remote_render_old = """box.innerHTML=filtered.length?filtered.map(d=>apiDutyCard(d)).join(''):'<div class="card empty">इन फ़िल्टर के लिए अभी कोई ड्यूटी नहीं मिली। तारीख या गाड़ी बदलकर देखें।</div>';"""
+          remote_render_new = """box.innerHTML=announcementHtml+(filtered.length?filtered.map(d=>apiDutyCard(d)).join(''):'<div class="card empty">इन फ़िल्टर के लिए अभी कोई ड्यूटी नहीं मिली। तारीख या गाड़ी बदलकर देखें।</div>');"""
+          if content.count(remote_render_old) != 1:
+              raise SystemExit("Duty Search announcement render target missing; refusing to build.")
+          content = content.replace(remote_render_old, remote_render_new, 1)
+
           # Replace only the membership status refresher, irrespective of minified whitespace.
           refresh_membership_function = r"""async function refreshMembership(){if(!getToken()||!apiReady())return;const box=document.getElementById('paymentMessage');try{const d=await apiRequest('/api/membership');if(!box)return;const request=d.paymentRequest||null;window.__gudiyaPaymentPending=request?.status==='pending';document.querySelectorAll('#membership .membership-option button').forEach(button=>{button.disabled=!!window.__gudiyaPaymentPending});if(request?.status==='pending'){document.getElementById('upiPaymentForm')?.classList.add('hidden');box.className='warn';box.textContent=(d.active?'आपकी वर्तमान सदस्यता सक्रिय है। ':'')+'आपका ₹'+request.amount_rupees+' का UPI भुगतान अनुरोध Pending है। Admin बैंक/UPI में UTR सत्यापित करेगा। पुष्टि होने तक दूसरा भुगतान न करें।';return;}if(d.active){box.className='success';box.textContent='आपकी '+(d.subscription?.amount_rupees||'चुनी गई')+' रुपये की सदस्यता सक्रिय है।';return;}if(request?.status==='rejected'){box.className='warn';box.textContent='पिछला UPI भुगतान अनुरोध अस्वीकार हुआ। '+(request.admin_note?'Admin note: '+request.admin_note:'कृपया UTR और भुगतान विवरण जाँचकर दोबारा प्रयास करें।');return;}box.className='warn';box.textContent='सदस्यता सक्रिय नहीं है। BharatPe UPI से प्लान चुनें और भुगतान के बाद UTR जमा करें।';}catch(e){if(box){box.className='warn';box.textContent='सदस्यता स्थिति लोड नहीं हुई: '+e.message}}}"""
           content, refresh_count = re.subn(
@@ -129,7 +141,8 @@ jobs:
           card_anchor = "function apiDutyCard(d){"
           if card_anchor not in content:
               raise SystemExit("Duty card insertion point missing for WhatsApp name sanitizer.")
-          content = content.replace(card_anchor, clean_name + "\n" + card_anchor, 1)
+          remote_message_helper = "function getRemoteAppMessage(key,fallback=''){const messages=window.__gudiyaRemoteMessages||{};const value=messages[key];return typeof value==='string'&&value.trim()?value.trim():fallback;}"
+          content = content.replace(card_anchor, clean_name + "\n" + remote_message_helper + "\n" + card_anchor, 1)
           # Suppress source-group label even if a future card template adds it.
           group_block = r"\$\{sourceGroup\?`<div class=\"notice\">WhatsApp ग्रुप:[\s\S]*?</div>`:''\}"
           content = re.sub(group_block, "", content, count=1)
@@ -250,7 +263,7 @@ jobs:
           if display_start < 0 or display_end < 0:
               raise SystemExit("Duty card details display target missing; refusing to build.")
           display_end += len(display_end_marker)
-          new_display = r"""${available?(isWhatsApp?`<div class="notice duty-poster">पोस्ट करने वाले: <b>${esc(ownerName||'नाम उपलब्ध नहीं')}</b> · ${esc(phone||'मोबाइल नंबर उपलब्ध नहीं')}</div>`:`<div class="notice duty-notes">जानकारी: ${esc(d.notes||d.notes_private||'—')}</div>${ownerName?`<div class="notice duty-poster">पोस्ट करने वाले: <b>${esc(ownerName)}</b> · ${esc(phone||'मोबाइल नंबर उपलब्ध नहीं')}</div>`:''}`):'<div class="notice">गैर-सदस्य के लिए पूरी जानकारी पहले 5 मिनट लॉक रहेगी। 5 मिनट बाद अपने-आप खुल जाएगी; सदस्य को पूरी जानकारी तुरंत दिखेगी।</div>'}"""
+          new_display = r"""${available?(isWhatsApp?`<div class="notice duty-poster">पोस्ट करने वाले: <b>${esc(ownerName||'नाम उपलब्ध नहीं')}</b> · ${esc(phone||'मोबाइल नंबर उपलब्ध नहीं')}</div>`:`<div class="notice duty-notes">जानकारी: ${esc(d.notes||d.notes_private||'—')}</div>${ownerName?`<div class="notice duty-poster">पोस्ट करने वाले: <b>${esc(ownerName)}</b> · ${esc(phone||'मोबाइल नंबर उपलब्ध नहीं')}</div>`:''}`):'<div class="notice">'+esc(getRemoteAppMessage('unpaidDutyLock','गैर-सदस्य के लिए पूरी जानकारी पहले 10 मिनट लॉक रहेगी। 10 मिनट बाद अपने-आप खुल जाएगी; सदस्य को पूरी जानकारी तुरंत दिखेगी।\n💳 पूरी जानकारी तुरंत पाने के लिए अपने अकाउंट को रिचार्ज करें।')).replace(/\n/g,'<br>')+'</div>'}"""
           content = content[:display_start] + new_display + content[display_end:]
           content = content.replace("5 मिनट", "10 मिनट")
 
@@ -645,8 +658,8 @@ jobs:
 
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 35", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.13"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 36", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.14"', build, count=1)
           if c1 != 1 or c2 != 1:
               raise SystemExit("Could not safely increment Android app version.")
           old_types = """    buildTypes {
@@ -703,7 +716,7 @@ jobs:
           if not config_js.is_file():
               raise SystemExit("Android app config.js missing; refusing to build.")
           config_content = config_js.read_text(encoding="utf-8")
-          app_version_line = "window.GUDIYA_APP_VERSION = '1.3.13';"
+          app_version_line = "window.GUDIYA_APP_VERSION = '1.3.14';"
           if "window.GUDIYA_APP_VERSION" in config_content:
               config_lines = [line for line in config_content.splitlines() if not line.strip().startswith("window.GUDIYA_APP_VERSION")]
               config_content = chr(10).join(config_lines).rstrip() + chr(10) + app_version_line + chr(10)
@@ -725,10 +738,10 @@ jobs:
           grep -Fq "gudiyaUpdateGate" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           grep -Fq "सदस्यता का भुगतान BharatPe UPI से किया जा सकता है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           if grep -Fq "भुगतान सुविधा पर अभी काम चल रहा है" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html; then echo "Stale membership payment text remains"; exit 1; fi
-          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.13';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.14';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
           grep -Fq "display:none" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
           grep -Fq "layer.style.display='flex'" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
-          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.13';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.14';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
 
 
       - name: Upload source patch diagnostic log
@@ -878,15 +891,15 @@ jobs:
           html_path.write_text(html, encoding="utf-8")
           gradle = root / "app/build.gradle.kts"
           build = gradle.read_text(encoding="utf-8")
-          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 35", build, count=1)
-          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.13"', build, count=1)
+          build, c1 = re.subn(r"versionCode\s*=\s*\d+", "versionCode = 36", build, count=1)
+          build, c2 = re.subn(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.3.14"', build, count=1)
           if c1 != 1 or c2 != 1:
-              raise SystemExit("Could not set User App version 1.3.13 / code 35.")
+              raise SystemExit("Could not set User App version 1.3.14 / code 36.")
           gradle.write_text(build, encoding="utf-8")
           config = root / "app/src/main/assets/config.js"
           config_text = config.read_text(encoding="utf-8")
           lines = [line for line in config_text.splitlines() if not line.strip().startswith("window.GUDIYA_APP_VERSION")]
-          config.write_text("\n".join(lines).rstrip() + "\nwindow.GUDIYA_APP_VERSION = '1.3.13';\n", encoding="utf-8")
+          config.write_text("\n".join(lines).rstrip() + "\nwindow.GUDIYA_APP_VERSION = '1.3.14';\n", encoding="utf-8")
           print("FCM token now re-registers on startup, focus and foreground resume.")
           PY
           python3 - <<'PY'
@@ -898,7 +911,7 @@ jobs:
           PY
           node --check /tmp/gudiya-inline-push.js
           grep -Fq "gudiyaPushForegroundRegistration" app-source/GudiyaTaxiPartner/app/src/main/assets/index.html
-          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.13';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
+          grep -Fq "window.GUDIYA_APP_VERSION = '1.3.14';" app-source/GudiyaTaxiPartner/app/src/main/assets/config.js
 
       - name: Prepare stable signing key
         shell: bash
@@ -945,7 +958,7 @@ jobs:
           test -n "$AAPT" || (echo "Missing aapt"; exit 1)
           test -n "$APKSIGNER" || (echo "Missing apksigner"; exit 1)
           BADGING="$("$AAPT" dump badging gudiya-taxi-partner.apk)"
-          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='35' versionName='1.3.13'" >/dev/null || {
+          echo "$BADGING" | grep -F "package: name='com.gudiyataxipartner' versionCode='36' versionName='1.3.14'" >/dev/null || {
             echo "ERROR: User APK package/version metadata mismatch."
             echo "$BADGING" | head -5
             exit 1
